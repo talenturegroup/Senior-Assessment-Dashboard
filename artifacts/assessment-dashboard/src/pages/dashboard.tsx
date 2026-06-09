@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { useCandidate } from "../lib/use-candidate";
-import { useGetCandidate, useGetDashboardStats, useListSessions, useCreateSession, getListSessionsQueryKey } from "@workspace/api-client-react";
+import { useCurrentCandidate } from "../lib/use-candidate";
+import { useGetDashboardStats, useListSessions, useCreateSession } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,23 +114,20 @@ const ALL_ROLES = [
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { candidateId } = useCandidate();
-
-  const { data: candidate, isLoading: isLoadingCandidate } = useGetCandidate(candidateId as number);
+  const { candidate, isLoading: isLoadingCandidate } = useCurrentCandidate();
 
   const { data: stats } = useGetDashboardStats();
-  const { data: sessions, isLoading: isLoadingSessions } = useListSessions(
-    { candidateId: candidateId as number },
-    { query: { enabled: !!candidateId, queryKey: getListSessionsQueryKey({ candidateId: candidateId as number }) } }
-  );
+  const { data: sessions, isLoading: isLoadingSessions } = useListSessions();
 
   const createSession = useCreateSession();
 
-  const handleRoleClick = (roleTitle: string) => {
-    if (!candidateId) {
-      setLocation(`/register?role=${encodeURIComponent(roleTitle)}`);
-      return;
+  useEffect(() => {
+    if (candidate && !candidate.profileComplete) {
+      setLocation("/profile");
     }
+  }, [candidate, setLocation]);
+
+  const handleRoleClick = (roleTitle: string) => {
     if (!candidate?.profileComplete) {
       setLocation("/profile");
       return;
@@ -138,7 +135,6 @@ export default function Dashboard() {
     createSession.mutate(
       {
         data: {
-          candidateId: candidateId,
           roleTitle,
           jobDescription: `Standard senior-level assessment for ${roleTitle}`,
         },
@@ -168,21 +164,10 @@ export default function Dashboard() {
                 </Badge>
               )}
             </h1>
-            {candidateId ? (
-              <p className="text-muted-foreground mt-2 font-mono text-sm">
-                {isLoadingCandidate ? "Loading..." : `${candidate?.name ?? "—"} // ${candidate?.role ?? "—"}`}
-              </p>
-            ) : (
-              <p className="text-muted-foreground mt-2 font-mono text-sm">
-                Select a role to begin your assessment
-              </p>
-            )}
+            <p className="text-muted-foreground mt-2 font-mono text-sm">
+              {isLoadingCandidate ? "Loading..." : `${candidate?.name ?? "—"} // ${candidate?.role || "—"}`}
+            </p>
           </div>
-          {!candidateId && (
-            <Button onClick={() => setLocation("/register")} className="font-mono text-xs tracking-wider">
-              CREATE PROFILE
-            </Button>
-          )}
         </div>
 
         {/* Stats */}
@@ -280,12 +265,7 @@ export default function Dashboard() {
             </h2>
             <Card className="border-border/50 bg-card/40">
               <CardContent className="p-0">
-                {!candidateId ? (
-                  <div className="p-8 text-center text-muted-foreground font-mono text-xs space-y-2">
-                    <Shield className="h-8 w-8 mx-auto opacity-30" />
-                    <p>CREATE_PROFILE_TO_VIEW</p>
-                  </div>
-                ) : isLoadingSessions ? (
+                {isLoadingSessions ? (
                   <div className="p-4 space-y-3">
                     <Skeleton className="h-12 w-full bg-secondary/40" />
                     <Skeleton className="h-12 w-full bg-secondary/40" />

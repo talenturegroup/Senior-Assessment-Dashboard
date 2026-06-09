@@ -26,18 +26,6 @@ export interface Candidate {
   createdAt: string;
 }
 
-export interface CandidateInput {
-  /** @minLength 1 */
-  name: string;
-  email: string;
-  /** @minLength 1 */
-  role: string;
-  /** @minimum 5 */
-  yearsOfExperience: number;
-  skills: string[];
-  linkedinUrl?: string;
-}
-
 export interface CandidateUpdate {
   name?: string;
   role?: string;
@@ -51,10 +39,6 @@ export interface CandidateUpdate {
 export interface CVUpload {
   cvText: string;
   cvFileName: string;
-}
-
-export interface SignInInput {
-  email: string;
 }
 
 export interface Role {
@@ -90,7 +74,6 @@ export interface Session {
 }
 
 export interface SessionInput {
-  candidateId: number;
   roleTitle: string;
   jobDescription?: string;
 }
@@ -195,8 +178,4 @@ export interface SessionSummary {
   rating: string | null;
   createdAt: string;
 }
-
-export type ListSessionsParams = {
-candidateId?: number;
-};
 

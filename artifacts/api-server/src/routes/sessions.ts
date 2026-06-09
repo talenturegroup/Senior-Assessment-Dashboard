@@ -15,36 +15,25 @@ import {
   SubmitAnswerBody,
   EvaluateSessionParams,
   EvaluateSessionResponse,
-  ListSessionsQueryParams,
   ListSessionsResponse,
 } from "@workspace/api-zod";
 import { generateInterviewQuestions, evaluateAnswer, generateFinalEvaluation } from "../lib/ai";
 import { serializeDates, serializeDatesArray } from "../lib/serialize";
+import { requireAuth, attachCandidate } from "../lib/auth";
 
 const router: IRouter = Router();
 
-router.get("/sessions", async (req, res): Promise<void> => {
-  const query = ListSessionsQueryParams.safeParse(req.query);
-  if (!query.success) {
-    res.status(400).json({ error: query.error.message });
-    return;
-  }
-
-  let sessions;
-  if (query.data.candidateId) {
-    sessions = await db
-      .select()
-      .from(sessionsTable)
-      .where(eq(sessionsTable.candidateId, query.data.candidateId))
-      .orderBy(sessionsTable.createdAt);
-  } else {
-    sessions = await db.select().from(sessionsTable).orderBy(sessionsTable.createdAt);
-  }
+router.get("/sessions", requireAuth, attachCandidate, async (req, res): Promise<void> => {
+  const sessions = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.candidateId, req.candidate!.id))
+    .orderBy(sessionsTable.createdAt);
 
   res.json(ListSessionsResponse.parse(serializeDatesArray(sessions)));
 });
 
-router.post("/sessions", async (req, res): Promise<void> => {
+router.post("/sessions", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const parsed = CreateSessionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -54,7 +43,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
   const [session] = await db
     .insert(sessionsTable)
     .values({
-      candidateId: parsed.data.candidateId,
+      candidateId: req.candidate!.id,
       roleTitle: parsed.data.roleTitle,
       jobDescription: parsed.data.jobDescription ?? null,
       status: "pending",
@@ -65,7 +54,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
   res.status(201).json(GetSessionResponse.parse(serializeDates(session)));
 });
 
-router.get("/sessions/:id", async (req, res): Promise<void> => {
+router.get("/sessions/:id", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = GetSessionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -77,7 +66,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     .from(sessionsTable)
     .where(eq(sessionsTable.id, params.data.id));
 
-  if (!session) {
+  if (!session || session.candidateId !== req.candidate!.id) {
     res.status(404).json({ error: "Session not found" });
     return;
   }
@@ -85,7 +74,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
   res.json(GetSessionResponse.parse(serializeDates(session)));
 });
 
-router.patch("/sessions/:id", async (req, res): Promise<void> => {
+router.patch("/sessions/:id", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = UpdateSessionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -95,6 +84,16 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
   const parsed = UpdateSessionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [owned] = await db
+    .select({ candidateId: sessionsTable.candidateId })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!owned || owned.candidateId !== req.candidate!.id) {
+    res.status(404).json({ error: "Session not found" });
     return;
   }
 
@@ -109,18 +108,23 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     .where(eq(sessionsTable.id, params.data.id))
     .returning();
 
-  if (!session) {
-    res.status(404).json({ error: "Session not found" });
-    return;
-  }
-
   res.json(UpdateSessionResponse.parse(serializeDates(session)));
 });
 
-router.get("/sessions/:id/questions", async (req, res): Promise<void> => {
+router.get("/sessions/:id/questions", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = GetSessionQuestionsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [owned] = await db
+    .select({ candidateId: sessionsTable.candidateId })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!owned || owned.candidateId !== req.candidate!.id) {
+    res.status(404).json({ error: "Session not found" });
     return;
   }
 
@@ -133,7 +137,7 @@ router.get("/sessions/:id/questions", async (req, res): Promise<void> => {
   res.json(GetSessionQuestionsResponse.parse(questions));
 });
 
-router.post("/sessions/:id/questions", async (req, res): Promise<void> => {
+router.post("/sessions/:id/questions", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = GenerateSessionQuestionsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -145,7 +149,7 @@ router.post("/sessions/:id/questions", async (req, res): Promise<void> => {
     .from(sessionsTable)
     .where(eq(sessionsTable.id, params.data.id));
 
-  if (!session) {
+  if (!session || session.candidateId !== req.candidate!.id) {
     res.status(404).json({ error: "Session not found" });
     return;
   }
@@ -191,7 +195,7 @@ router.post("/sessions/:id/questions", async (req, res): Promise<void> => {
   res.status(201).json(GetSessionQuestionsResponse.parse(inserted));
 });
 
-router.post("/sessions/:id/answers", async (req, res): Promise<void> => {
+router.post("/sessions/:id/answers", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = SubmitAnswerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -209,7 +213,7 @@ router.post("/sessions/:id/answers", async (req, res): Promise<void> => {
     .from(sessionsTable)
     .where(eq(sessionsTable.id, params.data.id));
 
-  if (!session) {
+  if (!session || session.candidateId !== req.candidate!.id) {
     res.status(404).json({ error: "Session not found" });
     return;
   }
@@ -246,7 +250,7 @@ router.post("/sessions/:id/answers", async (req, res): Promise<void> => {
   res.status(201).json(serializeDates(answer));
 });
 
-router.post("/sessions/:id/evaluate", async (req, res): Promise<void> => {
+router.post("/sessions/:id/evaluate", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = EvaluateSessionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -258,7 +262,7 @@ router.post("/sessions/:id/evaluate", async (req, res): Promise<void> => {
     .from(sessionsTable)
     .where(eq(sessionsTable.id, params.data.id));
 
-  if (!session) {
+  if (!session || session.candidateId !== req.candidate!.id) {
     res.status(404).json({ error: "Session not found" });
     return;
   }

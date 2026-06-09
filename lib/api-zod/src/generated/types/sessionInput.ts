@@ -7,7 +7,6 @@
  */
 
 export interface SessionInput {
-  candidateId: number;
   roleTitle: string;
   jobDescription?: string;
 }

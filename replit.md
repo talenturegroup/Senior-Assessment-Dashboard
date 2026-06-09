@@ -22,15 +22,21 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- DB schema (source of truth): `lib/db/src/schema/`
+- API contract (source of truth): `lib/api-spec/openapi.yaml` → generates `@workspace/api-zod` and `@workspace/api-client-react`
+- Backend routes: `artifacts/api-server/src/routes/`; auth helpers: `artifacts/api-server/src/lib/auth.ts`
+- Frontend pages: `artifacts/assessment-dashboard/src/pages/`; theme: `artifacts/assessment-dashboard/src/index.css`
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Auth = Replit-managed Clerk**, Google sign-in. Frontend wraps app in `ClerkProvider` with a branded `shadcn` appearance; web uses **cookie auth only** (same-origin), no Bearer tokens / `getToken`.
+- **Candidate identity is server-derived.** Clerk users bridge to numeric candidate rows via `clerkUserId` (unique, nullable) on `candidates`. `getOrCreateCandidate` resolves by clerkUserId → email → insert. There is no client-supplied `candidateId`; all candidate ops are `/candidates/me` and sessions are scoped to `req.candidate.id`.
+- **Every session-scoped route enforces ownership** (`requireAuth` + `attachCandidate` + `session.candidateId === req.candidate.id`, 404 on mismatch) to prevent IDOR by numeric id.
+- AI calls (OpenAI) have deterministic fallbacks so the app works without `OPENAI_API_KEY`.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+AI Assessment Dashboard (EVAL_CORE): candidates sign in with Google, complete a profile + CV, pick a role, and run an AI-driven technical interview that is scored and evaluated.
 
 ## User preferences
 

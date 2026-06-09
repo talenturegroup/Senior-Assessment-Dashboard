@@ -17,32 +17,9 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Create candidate profile
+ * @summary Get (or provision) the signed-in candidate profile
  */
-
-
-export const createCandidateBodyYearsOfExperienceMin = 5;
-
-
-
-export const CreateCandidateBody = zod.object({
-  "name": zod.string().min(1),
-  "email": zod.string(),
-  "role": zod.string().min(1),
-  "yearsOfExperience": zod.number().min(createCandidateBodyYearsOfExperienceMin),
-  "skills": zod.array(zod.string()),
-  "linkedinUrl": zod.string().optional()
-})
-
-
-/**
- * @summary Sign in an existing candidate by email
- */
-export const SignInCandidateBody = zod.object({
-  "email": zod.string()
-})
-
-export const SignInCandidateResponse = zod.object({
+export const GetCurrentCandidateResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "email": zod.string(),
@@ -58,48 +35,22 @@ export const SignInCandidateResponse = zod.object({
 
 
 /**
- * @summary Get candidate profile
+ * @summary Update the signed-in candidate profile
  */
-export const GetCandidateParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const GetCandidateResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.string(),
-  "yearsOfExperience": zod.number(),
-  "skills": zod.array(zod.string()),
-  "linkedinUrl": zod.string().nullish(),
-  "cvText": zod.string().nullish(),
-  "cvFileName": zod.string().nullish(),
-  "profileComplete": zod.boolean(),
-  "createdAt": zod.string()
-})
-
-
-/**
- * @summary Update candidate profile
- */
-export const UpdateCandidateParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const updateCandidateBodyYearsOfExperienceMin = 5;
+export const updateCurrentCandidateBodyYearsOfExperienceMin = 5;
 
 
 
-export const UpdateCandidateBody = zod.object({
+export const UpdateCurrentCandidateBody = zod.object({
   "name": zod.string().optional(),
   "role": zod.string().optional(),
-  "yearsOfExperience": zod.number().min(updateCandidateBodyYearsOfExperienceMin).optional(),
+  "yearsOfExperience": zod.number().min(updateCurrentCandidateBodyYearsOfExperienceMin).optional(),
   "skills": zod.array(zod.string()).optional(),
   "linkedinUrl": zod.string().optional(),
   "profileComplete": zod.boolean().optional()
 })
 
-export const UpdateCandidateResponse = zod.object({
+export const UpdateCurrentCandidateResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "email": zod.string(),
@@ -115,18 +66,14 @@ export const UpdateCandidateResponse = zod.object({
 
 
 /**
- * @summary Upload CV for candidate
+ * @summary Upload CV for the signed-in candidate
  */
-export const UploadCandidateCVParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const UploadCandidateCVBody = zod.object({
+export const UploadCurrentCandidateCVBody = zod.object({
   "cvText": zod.string(),
   "cvFileName": zod.string()
 })
 
-export const UploadCandidateCVResponse = zod.object({
+export const UploadCurrentCandidateCVResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "email": zod.string(),
@@ -154,12 +101,8 @@ export const ListRolesResponse = zod.array(ListRolesResponseItem)
 
 
 /**
- * @summary List all interview sessions
+ * @summary List interview sessions for the signed-in candidate
  */
-export const ListSessionsQueryParams = zod.object({
-  "candidateId": zod.coerce.number().optional()
-})
-
 export const ListSessionsResponseItem = zod.object({
   "id": zod.number(),
   "candidateId": zod.number(),
@@ -178,7 +121,6 @@ export const ListSessionsResponse = zod.array(ListSessionsResponseItem)
  * @summary Create a new interview session
  */
 export const CreateSessionBody = zod.object({
-  "candidateId": zod.number(),
   "roleTitle": zod.string(),
   "jobDescription": zod.string().optional()
 })

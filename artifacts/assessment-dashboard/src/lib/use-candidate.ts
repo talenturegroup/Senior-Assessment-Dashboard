@@ -1,18 +1,19 @@
-import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/react";
+import { useGetCurrentCandidate, getGetCurrentCandidateQueryKey } from "@workspace/api-client-react";
 
-export function useCandidate() {
-  const [candidateId, setCandidateId] = useState<number | null>(() => {
-    const stored = localStorage.getItem("candidateId");
-    return stored ? parseInt(stored, 10) : null;
+export function useCurrentCandidate() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const query = useGetCurrentCandidate({
+    query: {
+      enabled: isLoaded && !!isSignedIn,
+      queryKey: getGetCurrentCandidateQueryKey(),
+    },
   });
 
-  useEffect(() => {
-    if (candidateId) {
-      localStorage.setItem("candidateId", candidateId.toString());
-    } else {
-      localStorage.removeItem("candidateId");
-    }
-  }, [candidateId]);
-
-  return { candidateId, setCandidateId };
+  return {
+    ...query,
+    candidate: query.data,
+    isSignedIn: !!isSignedIn,
+    authLoaded: isLoaded,
+  };
 }

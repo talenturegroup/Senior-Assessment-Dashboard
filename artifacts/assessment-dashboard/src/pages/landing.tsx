@@ -1,6 +1,4 @@
 import { useLocation } from "wouter";
-import { useCandidate } from "../lib/use-candidate";
-import { useGetCandidate, useCreateSession } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,35 +26,10 @@ const ALL_ROLES = [
 
 export default function Landing() {
   const [, setLocation] = useLocation();
-  const { candidateId } = useCandidate();
-
-  const { data: candidate } = useGetCandidate(candidateId as number);
-
-  const createSession = useCreateSession();
 
   const handleRoleClick = (roleTitle: string) => {
-    if (!candidateId) {
-      setLocation(`/register?role=${encodeURIComponent(roleTitle)}`);
-      return;
-    }
-    if (!candidate?.profileComplete) {
-      setLocation("/profile");
-      return;
-    }
-    createSession.mutate(
-      {
-        data: {
-          candidateId: candidateId,
-          roleTitle,
-          jobDescription: `Standard senior-level assessment for ${roleTitle}`,
-        },
-      },
-      {
-        onSuccess: (session) => {
-          setLocation(`/interview/${session.id}`);
-        },
-      }
-    );
+    sessionStorage.setItem("pendingRole", roleTitle);
+    setLocation("/sign-in");
   };
 
   return (
@@ -115,7 +88,6 @@ export default function Landing() {
                         variant="ghost"
                         className={`font-mono text-xs shrink-0 h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity ${role.color} hover:bg-secondary/80`}
                         onClick={(e) => { e.stopPropagation(); handleRoleClick(role.title); }}
-                        disabled={createSession.isPending}
                       >
                         <Play className="h-3 w-3 mr-1" /> START
                       </Button>

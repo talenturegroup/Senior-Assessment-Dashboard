@@ -34,59 +34,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /candidates:
-    post:
-      operationId: createCandidate
-      tags: [candidates]
-      summary: Create candidate profile
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CandidateInput"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Candidate"
-        "400":
-          description: Bad request
-
-  /candidates/signin:
-    post:
-      operationId: signInCandidate
-      tags: [candidates]
-      summary: Sign in an existing candidate by email
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SignInInput"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Candidate"
-        "404":
-          description: Not found
-
-  /candidates/{id}:
+  /candidates/me:
     get:
-      operationId: getCandidate
+      operationId: getCurrentCandidate
       tags: [candidates]
-      summary: Get candidate profile
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      summary: Get (or provision) the signed-in candidate profile
       responses:
         "200":
           description: OK
@@ -94,18 +46,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Candidate"
-        "404":
-          description: Not found
+        "401":
+          description: Unauthorized
     patch:
-      operationId: updateCandidate
+      operationId: updateCurrentCandidate
       tags: [candidates]
-      summary: Update candidate profile
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      summary: Update the signed-in candidate profile
       requestBody:
         required: true
         content:
@@ -119,18 +65,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Candidate"
+        "401":
+          description: Unauthorized
 
-  /candidates/{id}/cv:
+  /candidates/me/cv:
     post:
-      operationId: uploadCandidateCV
+      operationId: uploadCurrentCandidateCV
       tags: [candidates]
-      summary: Upload CV for candidate
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      summary: Upload CV for the signed-in candidate
       requestBody:
         required: true
         content:
@@ -144,6 +86,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Candidate"
+        "401":
+          description: Unauthorized
 
   /roles:
     get:
@@ -164,13 +108,7 @@ paths:
     get:
       operationId: listSessions
       tags: [sessions]
-      summary: List all interview sessions
-      parameters:
-        - name: candidateId
-          in: query
-          required: false
-          schema:
-            type: integer
+      summary: List interview sessions for the signed-in candidate
       responses:
         "200":
           description: OK
@@ -413,28 +351,6 @@ components:
         createdAt:
           type: string
 
-    CandidateInput:
-      type: object
-      required: [name, email, role, yearsOfExperience, skills]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        email:
-          type: string
-        role:
-          type: string
-          minLength: 1
-        yearsOfExperience:
-          type: integer
-          minimum: 5
-        skills:
-          type: array
-          items:
-            type: string
-        linkedinUrl:
-          type: string
-
     CandidateUpdate:
       type: object
       properties:
@@ -461,13 +377,6 @@ components:
         cvText:
           type: string
         cvFileName:
-          type: string
-
-    SignInInput:
-      type: object
-      required: [email]
-      properties:
-        email:
           type: string
 
     Role:
@@ -509,10 +418,8 @@ components:
 
     SessionInput:
       type: object
-      required: [candidateId, roleTitle]
+      required: [roleTitle]
       properties:
-        candidateId:
-          type: integer
         roleTitle:
           type: string
         jobDescription:
