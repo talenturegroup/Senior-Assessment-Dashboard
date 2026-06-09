@@ -13,4 +13,6 @@ export const QuestionQuestionType = {
   technical: 'technical',
   system_design: 'system_design',
   behavioral: 'behavioral',
+  coding: 'coding',
+  soft_skill: 'soft_skill',
 } as const;

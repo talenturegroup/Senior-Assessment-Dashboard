@@ -5,6 +5,7 @@
  * AI Assessment Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { EvaluationHumanReviewStatus } from './evaluationHumanReviewStatus';
 import type { EvaluationRating } from './evaluationRating';
 
 export interface Evaluation {
@@ -22,5 +23,6 @@ export interface Evaluation {
   readyForHiring: boolean;
   /** @nullable */
   summary?: string | null;
+  humanReviewStatus: EvaluationHumanReviewStatus;
   createdAt: string;
 }

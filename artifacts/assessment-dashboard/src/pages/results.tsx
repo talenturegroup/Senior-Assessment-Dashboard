@@ -1,11 +1,19 @@
 import { useLocation, useParams } from "wouter";
-import { useGetEvaluation, useGetSession } from "@workspace/api-client-react";
+import { useGetEvaluation, useGetSession, useListSessionAnswers, useGetSessionQuestions, getGetSessionQuestionsQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ShieldCheck, XCircle, AlertTriangle, ArrowLeft } from "lucide-react";
+import { ShieldCheck, XCircle, AlertTriangle, ArrowLeft, ClipboardList, UserCheck } from "lucide-react";
+
+const QUESTION_TYPE_LABEL: Record<string, string> = {
+  technical: "TECHNICAL",
+  system_design: "SYSTEM_DESIGN",
+  behavioral: "BEHAVIORAL",
+  coding: "CODING_CHALLENGE",
+  soft_skill: "SOFT_SKILLS",
+};
 
 export default function Results() {
   const [, setLocation] = useLocation();
@@ -14,6 +22,10 @@ export default function Results() {
 
   const { data: session } = useGetSession(id);
   const { data: evaluation, isLoading } = useGetEvaluation(id);
+  const { data: answers } = useListSessionAnswers(id);
+  const { data: questions } = useGetSessionQuestions(id, {
+    query: { enabled: !!id, queryKey: getGetSessionQuestionsQueryKey(id) },
+  });
 
   if (isLoading || !evaluation) {
     return (
@@ -139,6 +151,65 @@ export default function Results() {
           </div>
 
         </div>
+
+        {/* Candidate responses — saved for human evaluation */}
+        <Card className="bg-card/40 border-border">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between gap-4 flex-wrap">
+            <CardTitle className="font-mono text-sm flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              CANDIDATE_RESPONSES
+            </CardTitle>
+            <Badge
+              variant="outline"
+              className={`font-mono text-[10px] flex items-center gap-1 ${
+                evaluation.humanReviewStatus === "reviewed"
+                  ? "border-green-500/40 text-green-500"
+                  : "border-amber-500/40 text-amber-500"
+              }`}
+            >
+              <UserCheck className="h-3 w-3" />
+              {evaluation.humanReviewStatus === "reviewed" ? "HUMAN_REVIEWED" : "PENDING_HUMAN_REVIEW"}
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              The AI scores above are provisional. Every response below is saved verbatim for a human
+              reviewer to verify the assessment.
+            </p>
+            {answers && answers.length > 0 ? (
+              answers.map((answer, i) => {
+                const question = questions?.find((q) => q.id === answer.questionId);
+                const blank = !answer.transcript.trim();
+                return (
+                  <div key={answer.id} className="rounded-md border border-border bg-background/40 p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground">Q{i + 1}</span>
+                        {question && (
+                          <Badge variant="outline" className="font-mono text-[10px] border-primary/30 text-primary">
+                            {QUESTION_TYPE_LABEL[question.questionType] ?? question.questionType.toUpperCase()}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        AI_SCORE: <span className="text-foreground">{answer.score}/100</span>
+                      </span>
+                    </div>
+                    {question && (
+                      <p className="text-sm font-medium leading-relaxed">{question.questionText}</p>
+                    )}
+                    <p className={`text-sm leading-relaxed font-mono whitespace-pre-wrap ${blank ? "italic text-destructive" : "text-muted-foreground"}`}>
+                      {blank ? "— No answer provided —" : answer.transcript}
+                    </p>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No responses were recorded for this session.</p>
+            )}
+          </CardContent>
+        </Card>
+
       </main>
     </div>
   );

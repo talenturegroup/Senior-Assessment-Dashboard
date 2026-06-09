@@ -36,7 +36,12 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Product
 
-AI Assessment Dashboard (EVAL_CORE): candidates sign in with Google, complete a profile + CV, pick a role, and run an AI-driven technical interview that is scored and evaluated.
+AI Assessment Dashboard (Arvencor): candidates sign in with Google, complete a profile + CV, pick a role, and run an AI-driven technical interview that is scored and evaluated.
+
+- The interview opens with a spoken AI welcome/intro stage (browser `speechSynthesis`, `src/lib/speech.ts`), greets the candidate by name, then reads each question aloud. Speech has a mute/replay control and degrades gracefully (no-op) where unsupported.
+- Question mix spans 5 `questionType`s: `soft_skill`, `technical`, `coding`, `system_design`, `behavioral`. Scoring buckets: coding→technical, soft_skill→communication.
+- **Blank/skipped answers score 0** (see Gotchas). Final score is 0 / `no_hire` when no genuine answers are given.
+- Candidate responses are persisted and surfaced for human review on the results page (`GET /sessions/:id/answers`); evaluations carry `humanReviewStatus` (`pending`|`reviewed`) shown as a badge — AI scores are provisional.
 
 ## User preferences
 
@@ -44,7 +49,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- **Non-answers must score 0.** `evaluateAnswer` (`api-server/src/lib/ai.ts`) hard-zeros blank/placeholder/too-short transcripts via `isBlankAnswer()` before any AI call; the AI prompt also instructs 0 for non-attempts; the deterministic fallback is length-aware (never a flat reward). The client submits `transcript.trim()` (empty, not a placeholder). If you touch scoring, keep all three layers consistent or empty interviews will inflate again.
+- After editing `lib/api-spec/openapi.yaml`, run `pnpm --filter @workspace/api-spec run codegen` and restart the API server workflow so regenerated `@workspace/api-zod` is picked up.
 
 ## Pointers
 

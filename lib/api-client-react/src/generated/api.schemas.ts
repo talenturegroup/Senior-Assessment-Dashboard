@@ -101,6 +101,8 @@ export const QuestionQuestionType = {
   technical: 'technical',
   system_design: 'system_design',
   behavioral: 'behavioral',
+  coding: 'coding',
+  soft_skill: 'soft_skill',
 } as const;
 
 export interface Question {
@@ -139,6 +141,14 @@ export const EvaluationRating = {
   no_hire: 'no_hire',
 } as const;
 
+export type EvaluationHumanReviewStatus = typeof EvaluationHumanReviewStatus[keyof typeof EvaluationHumanReviewStatus];
+
+
+export const EvaluationHumanReviewStatus = {
+  pending: 'pending',
+  reviewed: 'reviewed',
+} as const;
+
 export interface Evaluation {
   id: number;
   sessionId: number;
@@ -154,6 +164,7 @@ export interface Evaluation {
   readyForHiring: boolean;
   /** @nullable */
   summary?: string | null;
+  humanReviewStatus: EvaluationHumanReviewStatus;
   createdAt: string;
 }
 

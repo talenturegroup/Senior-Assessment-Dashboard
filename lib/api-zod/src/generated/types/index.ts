@@ -13,6 +13,7 @@ export * from './candidateUpdate';
 export * from './cVUpload';
 export * from './dashboardStats';
 export * from './evaluation';
+export * from './evaluationHumanReviewStatus';
 export * from './evaluationRating';
 export * from './healthStatus';
 export * from './question';

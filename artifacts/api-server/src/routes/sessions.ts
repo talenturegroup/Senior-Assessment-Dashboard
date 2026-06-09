@@ -13,6 +13,7 @@ import {
   GenerateSessionQuestionsParams,
   SubmitAnswerParams,
   SubmitAnswerBody,
+  ListSessionAnswersResponse,
   EvaluateSessionParams,
   EvaluateSessionResponse,
   ListSessionsResponse,
@@ -193,6 +194,32 @@ router.post("/sessions/:id/questions", requireAuth, attachCandidate, async (req,
     .where(eq(sessionsTable.id, params.data.id));
 
   res.status(201).json(GetSessionQuestionsResponse.parse(inserted));
+});
+
+router.get("/sessions/:id/answers", requireAuth, attachCandidate, async (req, res): Promise<void> => {
+  const params = SubmitAnswerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [owned] = await db
+    .select({ candidateId: sessionsTable.candidateId })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!owned || owned.candidateId !== req.candidate!.id) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  const answers = await db
+    .select()
+    .from(answersTable)
+    .where(eq(answersTable.sessionId, params.data.id))
+    .orderBy(answersTable.id);
+
+  res.json(ListSessionAnswersResponse.parse(serializeDatesArray(answers)));
 });
 
 router.post("/sessions/:id/answers", requireAuth, attachCandidate, async (req, res): Promise<void> => {

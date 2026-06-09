@@ -865,6 +865,83 @@ export const useGenerateSessionQuestions = <TError = ErrorType<unknown>,
       return useMutation(getGenerateSessionQuestionsMutationOptions(options));
     }
 
+export const getListSessionAnswersUrl = (id: number,) => {
+
+
+
+
+  return `/api/sessions/${id}/answers`
+}
+
+/**
+ * @summary List a session's candidate answers (for human review)
+ */
+export const listSessionAnswers = async (id: number, options?: RequestInit): Promise<Answer[]> => {
+
+  return customFetch<Answer[]>(getListSessionAnswersUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSessionAnswersQueryKey = (id: number,) => {
+    return [
+    `/api/sessions/${id}/answers`
+    ] as const;
+    }
+
+
+export const getListSessionAnswersQueryOptions = <TData = Awaited<ReturnType<typeof listSessionAnswers>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSessionAnswers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSessionAnswersQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSessionAnswers>>> = ({ signal }) => listSessionAnswers(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSessionAnswers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSessionAnswersQueryResult = NonNullable<Awaited<ReturnType<typeof listSessionAnswers>>>
+export type ListSessionAnswersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List a session's candidate answers (for human review)
+ */
+
+export function useListSessionAnswers<TData = Awaited<ReturnType<typeof listSessionAnswers>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSessionAnswers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSessionAnswersQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getSubmitAnswerUrl = (id: number,) => {
 
 

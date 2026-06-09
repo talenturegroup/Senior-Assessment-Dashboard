@@ -183,7 +183,7 @@ export const GetSessionQuestionsResponseItem = zod.object({
   "id": zod.number(),
   "sessionId": zod.number(),
   "questionText": zod.string(),
-  "questionType": zod.enum(['technical', 'system_design', 'behavioral']),
+  "questionType": zod.enum(['technical', 'system_design', 'behavioral', 'coding', 'soft_skill']),
   "orderIndex": zod.number()
 })
 export const GetSessionQuestionsResponse = zod.array(GetSessionQuestionsResponseItem)
@@ -195,6 +195,27 @@ export const GetSessionQuestionsResponse = zod.array(GetSessionQuestionsResponse
 export const GenerateSessionQuestionsParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
+/**
+ * @summary List a session's candidate answers (for human review)
+ */
+export const ListSessionAnswersParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListSessionAnswersResponseItem = zod.object({
+  "id": zod.number(),
+  "sessionId": zod.number(),
+  "questionId": zod.number(),
+  "transcript": zod.string(),
+  "score": zod.number(),
+  "feedback": zod.string(),
+  "strengths": zod.string().nullish(),
+  "weaknesses": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSessionAnswersResponse = zod.array(ListSessionAnswersResponseItem)
 
 
 /**
@@ -231,6 +252,7 @@ export const EvaluateSessionResponse = zod.object({
   "suggestions": zod.string(),
   "readyForHiring": zod.boolean(),
   "summary": zod.string().nullish(),
+  "humanReviewStatus": zod.enum(['pending', 'reviewed']),
   "createdAt": zod.string()
 })
 
@@ -256,6 +278,7 @@ export const GetEvaluationResponse = zod.object({
   "suggestions": zod.string(),
   "readyForHiring": zod.boolean(),
   "summary": zod.string().nullish(),
+  "humanReviewStatus": zod.enum(['pending', 'reviewed']),
   "createdAt": zod.string()
 })
 

@@ -5,10 +5,39 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY ?? "missing",
 });
 
+export type QuestionType =
+  | "technical"
+  | "system_design"
+  | "behavioral"
+  | "coding"
+  | "soft_skill";
+
+const QUESTION_TYPES: QuestionType[] = [
+  "technical",
+  "system_design",
+  "behavioral",
+  "coding",
+  "soft_skill",
+];
+
 export interface GeneratedQuestion {
   questionText: string;
-  questionType: "technical" | "system_design" | "behavioral";
+  questionType: QuestionType;
   orderIndex: number;
+}
+
+/**
+ * Returns true when a transcript is not a genuine attempt at answering
+ * (empty, whitespace, or the placeholder the client sends for skips).
+ */
+export function isBlankAnswer(answer: string): boolean {
+  const normalized = answer.trim().toLowerCase();
+  if (normalized.length === 0) return true;
+  if (normalized === "no answer provided." || normalized === "no answer provided")
+    return true;
+  // Fewer than 3 words and very short → not a substantive answer.
+  const words = normalized.split(/\s+/).filter(Boolean);
+  return words.length < 3 && normalized.length < 15;
 }
 
 export async function generateInterviewQuestions(
@@ -22,14 +51,16 @@ ${cvText ? `Candidate CV:\n${cvText.slice(0, 2000)}\n\n` : ""}${jobDescription ?
 
 Requirements:
 - All questions must be at senior level (5+ years experience assumed)
-- Mix: 3 technical deep-dive questions, 3 system design questions, 2 behavioral questions
-- Questions should be specific, scenario-based, and test depth of knowledge
-- Behavioral questions should assess leadership, decision-making, and technical judgment
+- Mix: 2 soft_skill questions, 3 technical deep-dive questions, 2 coding questions, 1 system_design question
+- soft_skill questions assess communication, collaboration, leadership, conflict resolution, and judgment
+- coding questions ask the candidate to describe their approach/solution to a concrete programming problem relevant to a ${role}
+- technical and system_design questions test depth of knowledge and architecture skills
+- Order the questions so a soft_skill question comes first to ease the candidate in
 
 Return ONLY valid JSON array with this format:
 [
-  {"questionText": "...", "questionType": "technical", "orderIndex": 0},
-  {"questionText": "...", "questionType": "system_design", "orderIndex": 1},
+  {"questionText": "...", "questionType": "soft_skill", "orderIndex": 0},
+  {"questionText": "...", "questionType": "technical", "orderIndex": 1},
   ...
 ]`;
 
@@ -47,7 +78,9 @@ Return ONLY valid JSON array with this format:
       Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
     return questions.slice(0, 8).map((q, i) => ({
       questionText: q.questionText ?? q.question ?? `Question ${i + 1}`,
-      questionType: (["technical", "system_design", "behavioral"].includes(q.questionType ?? "") ? q.questionType : "technical") as GeneratedQuestion["questionType"],
+      questionType: (QUESTION_TYPES.includes((q.questionType ?? "") as QuestionType)
+        ? q.questionType
+        : "technical") as QuestionType,
       orderIndex: i,
     }));
   } catch (err) {
@@ -61,6 +94,16 @@ export async function evaluateAnswer(
   answer: string,
   role: string
 ): Promise<{ score: number; feedback: string; strengths: string; weaknesses: string }> {
+  // Hard zero for non-answers — never reward an empty or skipped response.
+  if (isBlankAnswer(answer)) {
+    return {
+      score: 0,
+      feedback: "No substantive answer was provided for this question.",
+      strengths: "None — the question was left unanswered.",
+      weaknesses: "The candidate did not attempt to answer this question.",
+    };
+  }
+
   const prompt = `You are evaluating a senior ${role} candidate's interview response.
 
 Question: ${question}
@@ -73,6 +116,8 @@ Evaluate this answer for a SENIOR-LEVEL position. Score 0-100 based on:
 - Clarity of communication
 - Real-world experience signals
 - Seniority indicators
+
+IMPORTANT: If the answer is empty, off-topic, gibberish, or does not genuinely attempt to address the question, score it 0. Do not award points for an answer that is not a real attempt.
 
 Return ONLY valid JSON:
 {
@@ -93,17 +138,21 @@ Return ONLY valid JSON:
     const content = completion.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(content);
     return {
-      score: Math.min(100, Math.max(0, Number(parsed.score) || 50)),
+      score: Math.min(100, Math.max(0, Number(parsed.score) || 0)),
       feedback: parsed.feedback ?? "Answer evaluated.",
       strengths: parsed.strengths ?? "Demonstrated relevant knowledge.",
       weaknesses: parsed.weaknesses ?? "Could provide more depth.",
     };
   } catch (err) {
-    logger.warn({ err }, "OpenAI answer evaluation failed, using fallback");
+    logger.warn({ err }, "OpenAI answer evaluation failed, using deterministic fallback");
+    // Deterministic, length-aware heuristic. Never a flat reward; empties already returned 0 above.
+    const words = answer.trim().split(/\s+/).filter(Boolean).length;
+    const score = Math.min(70, Math.max(10, Math.round(words * 1.5)));
     return {
-      score: 65,
-      feedback: "The answer demonstrates relevant experience. More specific examples would strengthen the response.",
-      strengths: "Shows familiarity with the domain.",
+      score,
+      feedback:
+        "Automated scoring was unavailable, so this answer received a provisional score based on its depth. A human reviewer should confirm it.",
+      strengths: "Provided a response to the question.",
       weaknesses: "Could elaborate with concrete examples and metrics.",
     };
   }
@@ -126,9 +175,13 @@ export async function generateFinalEvaluation(
   readyForHiring: boolean;
   summary: string;
 }> {
-  const avgScore = answers.length > 0 ? Math.round(answers.reduce((s, a) => s + a.score, 0) / answers.length) : 50;
-  const technicalAnswers = answers.filter(a => a.questionType === "technical" || a.questionType === "system_design");
-  const behavioralAnswers = answers.filter(a => a.questionType === "behavioral");
+  const avgScore = answers.length > 0 ? Math.round(answers.reduce((s, a) => s + a.score, 0) / answers.length) : 0;
+  const technicalAnswers = answers.filter(
+    a => a.questionType === "technical" || a.questionType === "system_design" || a.questionType === "coding"
+  );
+  const behavioralAnswers = answers.filter(
+    a => a.questionType === "behavioral" || a.questionType === "soft_skill"
+  );
 
   const technicalScore = technicalAnswers.length > 0
     ? Math.round(technicalAnswers.reduce((s, a) => s + a.score, 0) / technicalAnswers.length)
@@ -136,6 +189,23 @@ export async function generateFinalEvaluation(
   const communicationScore = behavioralAnswers.length > 0
     ? Math.round(behavioralAnswers.reduce((s, a) => s + a.score, 0) / behavioralAnswers.length)
     : Math.round(avgScore * 0.9);
+
+  // No genuine answers at all → unambiguous zero, no AI call needed.
+  if (answers.length === 0 || answers.every(a => isBlankAnswer(a.transcript))) {
+    return {
+      overallScore: 0,
+      roleFitScore: 0,
+      rating: "no_hire",
+      technicalScore: 0,
+      communicationScore: 0,
+      domainScore: 0,
+      strengths: "None — no substantive answers were provided.",
+      weaknesses: "The candidate did not answer the interview questions.",
+      suggestions: "Complete the interview by answering each question to receive a meaningful evaluation.",
+      readyForHiring: false,
+      summary: `The candidate did not provide substantive answers for the ${role} interview, so the assessment scored 0/100.`,
+    };
+  }
 
   const answersText = answers.map((a, i) =>
     `Q${i + 1} [${a.questionType}]: ${a.question}\nAnswer: ${a.transcript.slice(0, 300)}\nScore: ${a.score}/100`
@@ -204,13 +274,13 @@ Provide a comprehensive final evaluation. Return ONLY valid JSON:
 
 function getFallbackQuestions(role: string): GeneratedQuestion[] {
   return [
-    { questionText: `Describe the most complex system you've designed as a ${role}. What were the key technical decisions?`, questionType: "system_design", orderIndex: 0 },
-    { questionText: `How do you approach performance optimization in your ${role} work? Give a concrete example.`, questionType: "technical", orderIndex: 1 },
-    { questionText: `Walk me through how you would design a scalable, fault-tolerant system for 10M+ daily active users.`, questionType: "system_design", orderIndex: 2 },
-    { questionText: `Describe a time you identified a critical technical flaw in a project. How did you handle it?`, questionType: "behavioral", orderIndex: 3 },
-    { questionText: `What strategies do you use for ensuring code quality and reliability in production systems?`, questionType: "technical", orderIndex: 4 },
-    { questionText: `How do you approach debugging a complex issue in a distributed system?`, questionType: "technical", orderIndex: 5 },
-    { questionText: `Describe a situation where you had to make a significant architectural decision under pressure.`, questionType: "behavioral", orderIndex: 6 },
-    { questionText: `How would you design the data layer for a real-time analytics platform handling 1M events/sec?`, questionType: "system_design", orderIndex: 7 },
+    { questionText: `To start, tell me about a time you had a disagreement with a teammate on a technical decision. How did you resolve it?`, questionType: "soft_skill", orderIndex: 0 },
+    { questionText: `Describe the most complex system you've designed as a ${role}. What were the key technical decisions and trade-offs?`, questionType: "technical", orderIndex: 1 },
+    { questionText: `Given an array of integers, walk me through how you would find the two numbers that add up to a target value. Discuss time and space complexity.`, questionType: "coding", orderIndex: 2 },
+    { questionText: `How do you approach performance optimization in your ${role} work? Give a concrete example with measurable impact.`, questionType: "technical", orderIndex: 3 },
+    { questionText: `Walk me through how you would design a scalable, fault-tolerant system for 10M+ daily active users.`, questionType: "system_design", orderIndex: 4 },
+    { questionText: `Describe how you would implement a rate limiter for an API. What data structures and edge cases would you consider?`, questionType: "coding", orderIndex: 5 },
+    { questionText: `How do you communicate complex technical concepts to non-technical stakeholders? Give an example.`, questionType: "soft_skill", orderIndex: 6 },
+    { questionText: `What strategies do you use for ensuring code quality and reliability in production systems?`, questionType: "technical", orderIndex: 7 },
   ];
 }

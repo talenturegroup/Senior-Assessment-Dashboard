@@ -16,6 +16,7 @@ export const evaluationsTable = pgTable("evaluations", {
   suggestions: text("suggestions").notNull(),
   readyForHiring: boolean("ready_for_hiring").notNull().default(false),
   summary: text("summary"),
+  humanReviewStatus: text("human_review_status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

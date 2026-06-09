@@ -221,6 +221,25 @@ paths:
                   $ref: "#/components/schemas/Question"
 
   /sessions/{id}/answers:
+    get:
+      operationId: listSessionAnswers
+      tags: [sessions]
+      summary: List a session's candidate answers (for human review)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Answer"
     post:
       operationId: submitAnswer
       tags: [sessions]
@@ -448,7 +467,7 @@ components:
           type: string
         questionType:
           type: string
-          enum: [technical, system_design, behavioral]
+          enum: [technical, system_design, behavioral, coding, soft_skill]
         orderIndex:
           type: integer
 
@@ -486,7 +505,7 @@ components:
 
     Evaluation:
       type: object
-      required: [id, sessionId, overallScore, roleFitScore, rating, technicalScore, communicationScore, domainScore, strengths, weaknesses, suggestions, readyForHiring, createdAt]
+      required: [id, sessionId, overallScore, roleFitScore, rating, technicalScore, communicationScore, domainScore, strengths, weaknesses, suggestions, readyForHiring, humanReviewStatus, createdAt]
       properties:
         id:
           type: integer
@@ -515,6 +534,9 @@ components:
           type: boolean
         summary:
           type: ["string", "null"]
+        humanReviewStatus:
+          type: string
+          enum: [pending, reviewed]
         createdAt:
           type: string
 
