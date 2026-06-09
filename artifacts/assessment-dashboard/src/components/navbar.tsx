@@ -14,7 +14,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-primary">
           <BrainCircuit className="h-5 w-5" />
-          <span>EVAL_CORE</span>
+          <span>Arvencor</span>
         </Link>
         <Show when="signed-in">
           <div className="flex items-center gap-4">
