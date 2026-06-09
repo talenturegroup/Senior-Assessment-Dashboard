@@ -25,6 +25,7 @@ import type {
   CVUpload,
   Candidate,
   CandidateUpdate,
+  CreateSession409,
   DashboardStats,
   Evaluation,
   HealthStatus,
@@ -524,7 +525,7 @@ export const createSession = async (sessionInput: SessionInput, options?: Reques
 
 
 
-export const getCreateSessionMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateSessionMutationOptions = <TError = ErrorType<CreateSession409>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSession>>, TError,{data: BodyType<SessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createSession>>, TError,{data: BodyType<SessionInput>}, TContext> => {
 
@@ -553,12 +554,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createSession>>>
     export type CreateSessionMutationBody = BodyType<SessionInput>
-    export type CreateSessionMutationError = ErrorType<unknown>
+    export type CreateSessionMutationError = ErrorType<CreateSession409>
 
     /**
  * @summary Create a new interview session
  */
-export const useCreateSession = <TError = ErrorType<unknown>,
+export const useCreateSession = <TError = ErrorType<CreateSession409>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSession>>, TError,{data: BodyType<SessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createSession>>,

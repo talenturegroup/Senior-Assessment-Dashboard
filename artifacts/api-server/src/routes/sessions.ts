@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, count, sql } from "drizzle-orm";
 import { db, sessionsTable, questionsTable, answersTable, evaluationsTable, candidatesTable } from "@workspace/db";
 import {
   CreateSessionBody,
@@ -38,6 +38,26 @@ router.post("/sessions", requireAuth, attachCandidate, async (req, res): Promise
   const parsed = CreateSessionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  // Enforce a maximum of 3 attempts per role for each candidate.
+  const MAX_ATTEMPTS_PER_ROLE = 3;
+  const [{ value: attempts }] = await db
+    .select({ value: count() })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.candidateId, req.candidate!.id),
+        sql`lower(${sessionsTable.roleTitle}) = lower(${parsed.data.roleTitle})`
+      )
+    );
+
+  if (attempts >= MAX_ATTEMPTS_PER_ROLE) {
+    res.status(409).json({
+      error: "RETAKE_LIMIT_REACHED",
+      message: `You have reached the maximum of ${MAX_ATTEMPTS_PER_ROLE} attempts for "${parsed.data.roleTitle}".`,
+    });
     return;
   }
 

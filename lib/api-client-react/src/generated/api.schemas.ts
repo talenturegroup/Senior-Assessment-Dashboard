@@ -9,6 +9,23 @@ export interface HealthStatus {
   status: string;
 }
 
+export type CvParsedSectionsItem = {
+  heading: string;
+  content: string;
+};
+
+export interface CvParsed {
+  /** @nullable */
+  summary: string | null;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  location?: string | null;
+  sections: CvParsedSectionsItem[];
+}
+
 export interface Candidate {
   id: number;
   name: string;
@@ -19,9 +36,14 @@ export interface Candidate {
   /** @nullable */
   linkedinUrl?: string | null;
   /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
   cvText?: string | null;
   /** @nullable */
   cvFileName?: string | null;
+  cvParsed?: CvParsed | null;
   profileComplete: boolean;
   createdAt: string;
 }
@@ -33,6 +55,8 @@ export interface CandidateUpdate {
   yearsOfExperience?: number;
   skills?: string[];
   linkedinUrl?: string;
+  phone?: string;
+  location?: string;
   profileComplete?: boolean;
 }
 
@@ -189,4 +213,9 @@ export interface SessionSummary {
   rating: string | null;
   createdAt: string;
 }
+
+export type CreateSession409 = {
+  error: string;
+  message: string;
+};
 

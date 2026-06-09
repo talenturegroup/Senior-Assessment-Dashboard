@@ -5,6 +5,7 @@
  * AI Assessment Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CvParsed } from './cvParsed';
 
 export interface Candidate {
   id: number;
@@ -16,9 +17,14 @@ export interface Candidate {
   /** @nullable */
   linkedinUrl?: string | null;
   /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
   cvText?: string | null;
   /** @nullable */
   cvFileName?: string | null;
+  cvParsed?: CvParsed | null;
   profileComplete: boolean;
   createdAt: string;
 }

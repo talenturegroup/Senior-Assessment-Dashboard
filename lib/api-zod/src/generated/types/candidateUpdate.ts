@@ -13,5 +13,7 @@ export interface CandidateUpdate {
   yearsOfExperience?: number;
   skills?: string[];
   linkedinUrl?: string;
+  phone?: string;
+  location?: string;
   profileComplete?: boolean;
 }

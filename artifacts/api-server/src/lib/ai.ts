@@ -272,6 +272,192 @@ Provide a comprehensive final evaluation. Return ONLY valid JSON:
   }
 }
 
+export interface ParsedCv {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  summary: string | null;
+  skills: string[];
+  sections: Array<{ heading: string; content: string }>;
+}
+
+const CV_SECTION_HEADINGS = [
+  "summary",
+  "objective",
+  "profile",
+  "about",
+  "experience",
+  "work experience",
+  "professional experience",
+  "employment",
+  "education",
+  "skills",
+  "technical skills",
+  "projects",
+  "certifications",
+  "certificates",
+  "awards",
+  "achievements",
+  "publications",
+  "languages",
+  "interests",
+  "volunteer",
+  "references",
+  "contact",
+];
+
+/**
+ * Deterministic CV parsing — used when OpenAI is unavailable. Extracts contact
+ * details with regexes and splits the body into sections by recognised headings.
+ */
+export function parseCvDeterministic(cvText: string): ParsedCv {
+  const text = cvText.replace(/\r\n/g, "\n").trim();
+  const lines = text.split("\n").map((l) => l.trim());
+
+  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const phoneMatch = text.match(/(\+?\d[\d\s().-]{7,}\d)/);
+
+  // The first non-empty line is usually the candidate's name.
+  let name: string | null = null;
+  for (const line of lines) {
+    if (!line) continue;
+    if (emailMatch && line.includes(emailMatch[0])) continue;
+    if (/^\+?\d/.test(line)) continue;
+    if (line.length <= 60 && /^[A-Za-z][A-Za-z.'\- ]+$/.test(line)) {
+      name = line;
+    }
+    break;
+  }
+
+  // Location heuristic: a "City, ST" or "City, Country" style line near the top.
+  let location: string | null = null;
+  for (const line of lines.slice(0, 12)) {
+    if (location) break;
+    if (emailMatch && line.includes(emailMatch[0])) continue;
+    const m = line.match(/^([A-Za-z.\- ]+,\s*[A-Za-z.\- ]{2,})$/);
+    if (m && line.length <= 60) location = m[1].trim();
+  }
+
+  // Split into sections by recognised headings.
+  const sections: Array<{ heading: string; content: string }> = [];
+  let currentHeading: string | null = null;
+  let buffer: string[] = [];
+  const flush = () => {
+    if (currentHeading && buffer.join("\n").trim()) {
+      sections.push({ heading: currentHeading, content: buffer.join("\n").trim() });
+    }
+    buffer = [];
+  };
+  for (const line of lines) {
+    const normalized = line.toLowerCase().replace(/[:•\-_]+$/g, "").trim();
+    const isHeading =
+      line.length > 0 &&
+      line.length <= 40 &&
+      CV_SECTION_HEADINGS.includes(normalized);
+    if (isHeading) {
+      flush();
+      currentHeading = line.replace(/[:]+$/g, "").trim();
+    } else if (currentHeading) {
+      buffer.push(line);
+    }
+  }
+  flush();
+
+  // Skills: pull from a skills section if present.
+  let skills: string[] = [];
+  const skillSection = sections.find((s) => /skill/i.test(s.heading));
+  if (skillSection) {
+    skills = skillSection.content
+      .split(/[,•\n|]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && s.length <= 40)
+      .slice(0, 30);
+  }
+
+  const summarySection = sections.find((s) =>
+    /summary|objective|profile|about/i.test(s.heading)
+  );
+
+  return {
+    name,
+    email: emailMatch ? emailMatch[0] : null,
+    phone: phoneMatch ? phoneMatch[0].trim() : null,
+    location,
+    summary: summarySection ? summarySection.content : null,
+    skills,
+    sections:
+      sections.length > 0
+        ? sections
+        : text
+          ? [{ heading: "Resume", content: text.slice(0, 4000) }]
+          : [],
+  };
+}
+
+/**
+ * Parse a CV into structured contact fields and sections. Uses OpenAI when a key
+ * is configured and falls back to a deterministic parser otherwise.
+ */
+export async function parseCV(cvText: string): Promise<ParsedCv> {
+  const fallback = parseCvDeterministic(cvText);
+  if (!cvText.trim()) return fallback;
+
+  const prompt = `Extract structured data from the following CV/resume text. Return ONLY valid JSON with this exact shape:
+{
+  "name": <full name or null>,
+  "email": <email or null>,
+  "phone": <phone number or null>,
+  "location": <city/region or null>,
+  "summary": <a 1-3 sentence professional summary or null>,
+  "skills": [<list of individual skills, max 30>],
+  "sections": [{ "heading": <section title>, "content": <the full text of that section> }]
+}
+
+Rules:
+- Preserve every meaningful section of the CV (experience, education, projects, certifications, etc.) in "sections", in their original order.
+- Keep section "content" readable but complete — do not omit roles, dates, or bullet points.
+- If a field is missing, use null (or [] for skills).
+
+CV text:
+${cvText.slice(0, 8000)}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    });
+    const content = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content);
+    const sections = Array.isArray(parsed.sections)
+      ? parsed.sections
+        .filter((s: any) => s && (s.heading || s.content))
+        .map((s: any) => ({
+          heading: String(s.heading ?? "Section"),
+          content: String(s.content ?? ""),
+        }))
+        .filter((s: { content: string }) => s.content.trim().length > 0)
+      : [];
+    const skills = Array.isArray(parsed.skills)
+      ? parsed.skills.map((s: any) => String(s).trim()).filter(Boolean).slice(0, 30)
+      : [];
+    return {
+      name: parsed.name ? String(parsed.name) : fallback.name,
+      email: parsed.email ? String(parsed.email) : fallback.email,
+      phone: parsed.phone ? String(parsed.phone) : fallback.phone,
+      location: parsed.location ? String(parsed.location) : fallback.location,
+      summary: parsed.summary ? String(parsed.summary) : fallback.summary,
+      skills: skills.length > 0 ? skills : fallback.skills,
+      sections: sections.length > 0 ? sections : fallback.sections,
+    };
+  } catch (err) {
+    logger.warn({ err }, "OpenAI CV parsing failed, using deterministic fallback");
+    return fallback;
+  }
+}
+
 function getFallbackQuestions(role: string): GeneratedQuestion[] {
   return [
     { questionText: `To start, tell me about a time you had a disagreement with a teammate on a technical decision. How did you resolve it?`, questionType: "soft_skill", orderIndex: 0 },

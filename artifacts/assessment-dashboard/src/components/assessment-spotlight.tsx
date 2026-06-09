@@ -18,6 +18,8 @@ interface AssessmentSpotlightProps {
   onResume: (sessionId: number) => void;
   onViewResults: (sessionId: number) => void;
   isStarting?: boolean;
+  attemptsUsed?: number;
+  maxAttempts?: number;
 }
 
 function matchRole(role: string) {
@@ -35,9 +37,12 @@ export function AssessmentSpotlight({
   onResume,
   onViewResults,
   isStarting,
+  attemptsUsed = 0,
+  maxAttempts,
 }: AssessmentSpotlightProps) {
   const role = (appliedRole ?? "").trim();
   if (!role) return null;
+  const limitReached = maxAttempts != null && attemptsUsed >= maxAttempts;
 
   const meta = matchRole(role);
   const Icon = meta?.icon ?? Target;
@@ -82,6 +87,17 @@ export function AssessmentSpotlight({
                 Assessment in progress
               </div>
             )}
+            {maxAttempts != null && (
+              <div
+                className={`inline-flex items-center gap-1.5 pt-1 font-mono text-xs ${
+                  limitReached ? "text-destructive" : "text-muted-foreground"
+                }`}
+              >
+                {limitReached
+                  ? `Retake limit reached (${attemptsUsed}/${maxAttempts})`
+                  : `Attempts used: ${attemptsUsed}/${maxAttempts}`}
+              </div>
+            )}
           </div>
         </div>
 
@@ -99,11 +115,17 @@ export function AssessmentSpotlight({
               size="lg"
               className="font-mono shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]"
               onClick={() => onStart(role)}
-              disabled={isStarting}
+              disabled={isStarting || limitReached}
             >
               <Video className="mr-2 h-4 w-4" />
-              {isStarting ? "Starting…" : completed ? "Retake Assessment" : "Start Video Interview"}
-              {!isStarting && <ArrowRight className="ml-2 h-4 w-4" />}
+              {isStarting
+                ? "Starting…"
+                : limitReached
+                  ? "Retake Limit Reached"
+                  : completed
+                    ? "Retake Assessment"
+                    : "Start Video Interview"}
+              {!isStarting && !limitReached && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           )}
           {completed && (

@@ -135,6 +135,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "409":
+          description: Retake limit reached for this role
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, message]
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
 
   /sessions/{id}:
     get:
@@ -361,14 +373,45 @@ components:
             type: string
         linkedinUrl:
           type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
         cvText:
           type: ["string", "null"]
         cvFileName:
           type: ["string", "null"]
+        cvParsed:
+          oneOf:
+            - $ref: "#/components/schemas/CvParsed"
+            - type: "null"
         profileComplete:
           type: boolean
         createdAt:
           type: string
+
+    CvParsed:
+      type: object
+      required: [summary, sections]
+      properties:
+        summary:
+          type: ["string", "null"]
+        name:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        sections:
+          type: array
+          items:
+            type: object
+            required: [heading, content]
+            properties:
+              heading:
+                type: string
+              content:
+                type: string
 
     CandidateUpdate:
       type: object
@@ -385,6 +428,10 @@ components:
           items:
             type: string
         linkedinUrl:
+          type: string
+        phone:
+          type: string
+        location:
           type: string
         profileComplete:
           type: boolean

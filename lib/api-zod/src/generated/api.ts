@@ -27,8 +27,20 @@ export const GetCurrentCandidateResponse = zod.object({
   "yearsOfExperience": zod.number(),
   "skills": zod.array(zod.string()),
   "linkedinUrl": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
   "cvText": zod.string().nullish(),
   "cvFileName": zod.string().nullish(),
+  "cvParsed": zod.union([zod.object({
+  "summary": zod.string().nullable(),
+  "name": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "sections": zod.array(zod.object({
+  "heading": zod.string(),
+  "content": zod.string()
+}))
+}),zod.null()]).optional(),
   "profileComplete": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -47,6 +59,8 @@ export const UpdateCurrentCandidateBody = zod.object({
   "yearsOfExperience": zod.number().min(updateCurrentCandidateBodyYearsOfExperienceMin).optional(),
   "skills": zod.array(zod.string()).optional(),
   "linkedinUrl": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "location": zod.string().optional(),
   "profileComplete": zod.boolean().optional()
 })
 
@@ -58,8 +72,20 @@ export const UpdateCurrentCandidateResponse = zod.object({
   "yearsOfExperience": zod.number(),
   "skills": zod.array(zod.string()),
   "linkedinUrl": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
   "cvText": zod.string().nullish(),
   "cvFileName": zod.string().nullish(),
+  "cvParsed": zod.union([zod.object({
+  "summary": zod.string().nullable(),
+  "name": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "sections": zod.array(zod.object({
+  "heading": zod.string(),
+  "content": zod.string()
+}))
+}),zod.null()]).optional(),
   "profileComplete": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -81,8 +107,20 @@ export const UploadCurrentCandidateCVResponse = zod.object({
   "yearsOfExperience": zod.number(),
   "skills": zod.array(zod.string()),
   "linkedinUrl": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
   "cvText": zod.string().nullish(),
   "cvFileName": zod.string().nullish(),
+  "cvParsed": zod.union([zod.object({
+  "summary": zod.string().nullable(),
+  "name": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "sections": zod.array(zod.object({
+  "heading": zod.string(),
+  "content": zod.string()
+}))
+}),zod.null()]).optional(),
   "profileComplete": zod.boolean(),
   "createdAt": zod.string()
 })

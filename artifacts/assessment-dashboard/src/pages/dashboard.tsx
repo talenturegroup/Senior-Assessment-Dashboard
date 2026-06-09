@@ -39,10 +39,13 @@ function statusTone(status: string): string {
   }
 }
 
+const MAX_ATTEMPTS_PER_ROLE = 3;
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { candidate, isLoading: isLoadingCandidate } = useCurrentCandidate();
   const [filter, setFilter] = useState<Filter>("All");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: stats } = useGetDashboardStats();
   const { data: sessions, isLoading: isLoadingSessions } = useListSessions();
@@ -54,14 +57,40 @@ export default function Dashboard() {
     }
   }, [candidate, setLocation]);
 
+  const attemptsByRole = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of sessions ?? []) {
+      const key = s.roleTitle.toLowerCase();
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  }, [sessions]);
+
+  const attemptsFor = (roleTitle: string) => attemptsByRole.get(roleTitle.toLowerCase()) ?? 0;
+
   const handleRoleClick = (roleTitle: string) => {
+    setActionError(null);
     if (!candidate?.profileComplete) {
       setLocation("/profile");
       return;
     }
+    if (attemptsFor(roleTitle) >= MAX_ATTEMPTS_PER_ROLE) {
+      setActionError(`You've reached the maximum of ${MAX_ATTEMPTS_PER_ROLE} attempts for "${roleTitle}".`);
+      return;
+    }
     createSession.mutate(
       { data: { roleTitle, jobDescription: `Standard senior-level assessment for ${roleTitle}` } },
-      { onSuccess: (session) => setLocation(`/interview/${session.id}`) }
+      {
+        onSuccess: (session) => setLocation(`/interview/${session.id}`),
+        onError: (err) => {
+          const status = (err as { status?: number } | null)?.status;
+          if (status === 409) {
+            setActionError(`You've reached the maximum of ${MAX_ATTEMPTS_PER_ROLE} attempts for "${roleTitle}".`);
+          } else {
+            setActionError("Couldn't start the assessment. Please try again.");
+          }
+        },
+      }
     );
   };
 
@@ -127,7 +156,16 @@ export default function Dashboard() {
             onResume={(sessionId) => setLocation(`/interview/${sessionId}`)}
             onViewResults={(sessionId) => setLocation(`/results/${sessionId}`)}
             isStarting={createSession.isPending}
+            attemptsUsed={attemptsFor(candidate.role)}
+            maxAttempts={MAX_ATTEMPTS_PER_ROLE}
           />
+        )}
+
+        {actionError && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-sm text-destructive">
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            {actionError}
+          </div>
         )}
 
         {/* Stats */}
@@ -186,6 +224,8 @@ export default function Dashboard() {
                   role={role}
                   onSelect={handleRoleClick}
                   disabled={createSession.isPending}
+                  attemptsUsed={attemptsFor(role.title)}
+                  maxAttempts={MAX_ATTEMPTS_PER_ROLE}
                 />
               ))}
             </div>

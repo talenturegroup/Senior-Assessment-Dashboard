@@ -42,6 +42,8 @@ AI Assessment Dashboard (Arvencor): candidates sign in with Google, complete a p
 - Question mix spans 5 `questionType`s: `soft_skill`, `technical`, `coding`, `system_design`, `behavioral`. Scoring buckets: coding→technical, soft_skill→communication.
 - **Blank/skipped answers score 0** (see Gotchas). Final score is 0 / `no_hire` when no genuine answers are given.
 - Candidate responses are persisted and surfaced for human review on the results page (`GET /sessions/:id/answers`); evaluations carry `humanReviewStatus` (`pending`|`reviewed`) shown as a badge — AI scores are provisional.
+- **Retake limit: max 3 attempts per role per candidate.** Enforced server-side in `POST /sessions` (case-insensitive `roleTitle` count → 409 `RETAKE_LIMIT_REACHED`) and mirrored client-side on the dashboard (spotlight + role cards show `x/3`, disable start at the limit, banner on 409).
+- **Profile is a full page** (`profile.tsx`, Navbar/Footer) that auto-populates from an uploaded CV. The client extracts text (`src/lib/extract-cv.ts`: PDF via pdf.js, DOCX via mammoth, TXT) and `POST /candidates/me/cv` runs `parseCV` (OpenAI + deterministic fallback) to fill name/phone/location/skills and store all parsed sections in `cvParsed`.
 
 ## User preferences
 
@@ -51,6 +53,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 - **Non-answers must score 0.** `evaluateAnswer` (`api-server/src/lib/ai.ts`) hard-zeros blank/placeholder/too-short transcripts via `isBlankAnswer()` before any AI call; the AI prompt also instructs 0 for non-attempts; the deterministic fallback is length-aware (never a flat reward). The client submits `transcript.trim()` (empty, not a placeholder). If you touch scoring, keep all three layers consistent or empty interviews will inflate again.
 - After editing `lib/api-spec/openapi.yaml`, run `pnpm --filter @workspace/api-spec run codegen` and restart the API server workflow so regenerated `@workspace/api-zod` is picked up.
+- **Retake limit lives in two places that must agree.** Server (`POST /sessions`) and client (dashboard `attemptsByRole`) both count attempts and both normalize `roleTitle` case-insensitively. Changing the cap (3) or the normalization in one layer without the other lets users bypass the limit or see a wrong count. Server is the source of truth (returns 409); client is advisory UX.
 
 ## Pointers
 

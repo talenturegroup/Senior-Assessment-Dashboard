@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-zod";
 import { serializeDates } from "../lib/serialize";
 import { requireAuth, attachCandidate } from "../lib/auth";
+import { parseCV } from "../lib/ai";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,8 @@ router.patch("/candidates/me", requireAuth, attachCandidate, async (req, res): P
     updateData.yearsOfExperience = parsed.data.yearsOfExperience;
   if (parsed.data.skills !== undefined) updateData.skills = parsed.data.skills;
   if (parsed.data.linkedinUrl !== undefined) updateData.linkedinUrl = parsed.data.linkedinUrl;
+  if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone;
+  if (parsed.data.location !== undefined) updateData.location = parsed.data.location;
   if (parsed.data.profileComplete !== undefined)
     updateData.profileComplete = parsed.data.profileComplete;
 
@@ -50,13 +53,39 @@ router.post("/candidates/me/cv", requireAuth, attachCandidate, async (req, res):
     return;
   }
 
+  const cv = await parseCV(parsed.data.cvText);
+
+  // Merge CV-derived skills with any already on file (case-insensitive union).
+  const existingSkills = req.candidate!.skills ?? [];
+  const mergedSkills = [...existingSkills];
+  for (const skill of cv.skills) {
+    if (!mergedSkills.some((s) => s.toLowerCase() === skill.toLowerCase())) {
+      mergedSkills.push(skill);
+    }
+  }
+
+  const update: Partial<typeof candidatesTable.$inferInsert> = {
+    cvText: parsed.data.cvText,
+    cvFileName: parsed.data.cvFileName,
+    cvParsed: {
+      summary: cv.summary,
+      sections: cv.sections,
+      name: cv.name || null,
+      phone: cv.phone || null,
+      location: cv.location || null,
+    },
+    profileComplete: true,
+  };
+  // Only fill contact fields from the CV when not already set, so we never
+  // overwrite values the candidate entered manually.
+  if (cv.name && !req.candidate!.name) update.name = cv.name;
+  if (cv.phone && !req.candidate!.phone) update.phone = cv.phone;
+  if (cv.location && !req.candidate!.location) update.location = cv.location;
+  if (mergedSkills.length > 0) update.skills = mergedSkills;
+
   const [candidate] = await db
     .update(candidatesTable)
-    .set({
-      cvText: parsed.data.cvText,
-      cvFileName: parsed.data.cvFileName,
-      profileComplete: true,
-    })
+    .set(update)
     .where(eq(candidatesTable.id, req.candidate!.id))
     .returning();
 
