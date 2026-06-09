@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, evaluationsTable } from "@workspace/db";
 import { GetEvaluationParams, GetEvaluationResponse } from "@workspace/api-zod";
+import { serializeDates } from "../lib/serialize";
 
 const router: IRouter = Router();
 
@@ -22,7 +23,7 @@ router.get("/evaluations/:sessionId", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetEvaluationResponse.parse(evaluation));
+  res.json(GetEvaluationResponse.parse(serializeDates(evaluation)));
 });
 
 export default router;

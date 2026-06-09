@@ -19,6 +19,7 @@ import {
   ListSessionsResponse,
 } from "@workspace/api-zod";
 import { generateInterviewQuestions, evaluateAnswer, generateFinalEvaluation } from "../lib/ai";
+import { serializeDates, serializeDatesArray } from "../lib/serialize";
 
 const router: IRouter = Router();
 
@@ -40,7 +41,7 @@ router.get("/sessions", async (req, res): Promise<void> => {
     sessions = await db.select().from(sessionsTable).orderBy(sessionsTable.createdAt);
   }
 
-  res.json(ListSessionsResponse.parse(sessions));
+  res.json(ListSessionsResponse.parse(serializeDatesArray(sessions)));
 });
 
 router.post("/sessions", async (req, res): Promise<void> => {
@@ -61,7 +62,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
     })
     .returning();
 
-  res.status(201).json(GetSessionResponse.parse(session));
+  res.status(201).json(GetSessionResponse.parse(serializeDates(session)));
 });
 
 router.get("/sessions/:id", async (req, res): Promise<void> => {
@@ -81,7 +82,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetSessionResponse.parse(session));
+  res.json(GetSessionResponse.parse(serializeDates(session)));
 });
 
 router.patch("/sessions/:id", async (req, res): Promise<void> => {
@@ -113,7 +114,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(UpdateSessionResponse.parse(session));
+  res.json(UpdateSessionResponse.parse(serializeDates(session)));
 });
 
 router.get("/sessions/:id/questions", async (req, res): Promise<void> => {
@@ -149,7 +150,6 @@ router.post("/sessions/:id/questions", async (req, res): Promise<void> => {
     return;
   }
 
-  // Check if questions already generated
   if (session.questionsGenerated) {
     const existing = await db
       .select()
@@ -160,7 +160,6 @@ router.post("/sessions/:id/questions", async (req, res): Promise<void> => {
     return;
   }
 
-  // Get candidate CV
   const [candidate] = await db
     .select()
     .from(candidatesTable)
@@ -244,7 +243,7 @@ router.post("/sessions/:id/answers", async (req, res): Promise<void> => {
     })
     .returning();
 
-  res.status(201).json(answer);
+  res.status(201).json(serializeDates(answer));
 });
 
 router.post("/sessions/:id/evaluate", async (req, res): Promise<void> => {
@@ -264,18 +263,16 @@ router.post("/sessions/:id/evaluate", async (req, res): Promise<void> => {
     return;
   }
 
-  // Check for existing evaluation
   const [existing] = await db
     .select()
     .from(evaluationsTable)
     .where(eq(evaluationsTable.sessionId, params.data.id));
 
   if (existing) {
-    res.json(EvaluateSessionResponse.parse(existing));
+    res.json(EvaluateSessionResponse.parse(serializeDates(existing)));
     return;
   }
 
-  // Get all answers with questions
   const answers = await db
     .select({
       questionText: questionsTable.questionText,
@@ -305,19 +302,15 @@ router.post("/sessions/:id/evaluate", async (req, res): Promise<void> => {
 
   const [evaluation] = await db
     .insert(evaluationsTable)
-    .values({
-      sessionId: params.data.id,
-      ...evalResult,
-    })
+    .values({ sessionId: params.data.id, ...evalResult })
     .returning();
 
-  // Update session status
   await db
     .update(sessionsTable)
     .set({ status: "evaluated", completedAt: new Date() })
     .where(eq(sessionsTable.id, params.data.id));
 
-  res.json(EvaluateSessionResponse.parse(evaluation));
+  res.json(EvaluateSessionResponse.parse(serializeDates(evaluation)));
 });
 
 export default router;

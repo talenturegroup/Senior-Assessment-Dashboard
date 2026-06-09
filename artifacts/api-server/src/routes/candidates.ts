@@ -12,6 +12,7 @@ import {
   UploadCandidateCVBody,
   UploadCandidateCVResponse,
 } from "@workspace/api-zod";
+import { serializeDates } from "../lib/serialize";
 
 const router: IRouter = Router();
 
@@ -44,7 +45,7 @@ router.post("/candidates", async (req, res): Promise<void> => {
     })
     .returning();
 
-  res.status(201).json(GetCandidateResponse.parse(candidate));
+  res.status(201).json(GetCandidateResponse.parse(serializeDates(candidate)));
 });
 
 router.get("/candidates/:id", async (req, res): Promise<void> => {
@@ -64,7 +65,7 @@ router.get("/candidates/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetCandidateResponse.parse(candidate));
+  res.json(GetCandidateResponse.parse(serializeDates(candidate)));
 });
 
 router.patch("/candidates/:id", async (req, res): Promise<void> => {
@@ -99,7 +100,7 @@ router.patch("/candidates/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(UpdateCandidateResponse.parse(candidate));
+  res.json(UpdateCandidateResponse.parse(serializeDates(candidate)));
 });
 
 router.post("/candidates/:id/cv", async (req, res): Promise<void> => {
@@ -130,7 +131,7 @@ router.post("/candidates/:id/cv", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(UploadCandidateCVResponse.parse(candidate));
+  res.json(UploadCandidateCVResponse.parse(serializeDates(candidate)));
 });
 
 export default router;

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,9 +15,9 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   role: z.string().min(1, "Please select a role"),
-  yearsOfExperience: z.coerce.number().min(5, "This platform is strictly for senior professionals (5+ years)"),
-  skills: z.string().min(2, "Enter comma separated skills"),
-  linkedinUrl: z.string().url("Invalid URL").optional().or(z.literal('')),
+  yearsOfExperience: z.coerce.number().min(5, "This platform requires 5+ years of experience"),
+  skills: z.string().min(2, "Enter at least one skill"),
+  linkedinUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
 });
 
 const ROLES = [
@@ -33,11 +32,15 @@ const ROLES = [
   "Frontend Engineer (React)",
   "AI / LLM Engineer",
   "Mobile Developer (iOS/Android)",
-  "Database Administrator"
+  "Database Administrator",
 ];
 
 export default function Register() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const preselectedRole = params.get("role") ?? "";
+
   const { setCandidateId } = useCandidate();
   const createCandidate = useCreateCandidate();
 
@@ -46,7 +49,7 @@ export default function Register() {
     defaultValues: {
       name: "",
       email: "",
-      role: "",
+      role: preselectedRole,
       yearsOfExperience: 5,
       skills: "",
       linkedinUrl: "",
@@ -61,15 +64,24 @@ export default function Register() {
           email: values.email,
           role: values.role,
           yearsOfExperience: values.yearsOfExperience,
-          skills: values.skills.split(",").map(s => s.trim()).filter(Boolean),
+          skills: values.skills.split(",").map((s) => s.trim()).filter(Boolean),
           linkedinUrl: values.linkedinUrl || undefined,
-        }
+        },
       },
       {
         onSuccess: (candidate) => {
           setCandidateId(candidate.id);
           setLocation("/profile");
-        }
+        },
+        onError: (err: unknown) => {
+          const msg =
+            err && typeof err === "object" && "data" in err
+              ? (err as { data?: { error?: string } }).data?.error
+              : null;
+          if (msg?.includes("already exists")) {
+            form.setError("email", { message: "This email is already registered" });
+          }
+        },
       }
     );
   };
@@ -84,19 +96,23 @@ export default function Register() {
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">Create Profile</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Initialize your senior assessment protocol.
+            {preselectedRole
+              ? `Registering for: ${preselectedRole}`
+              : "Initialize your senior assessment protocol."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Full Name</FormLabel>
+                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                        Full Name
+                      </FormLabel>
                       <FormControl>
                         <Input placeholder="John Doe" className="bg-secondary/50 font-mono" {...field} />
                       </FormControl>
@@ -109,9 +125,16 @@ export default function Register() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Email</FormLabel>
+                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                        Email
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder="john@example.com" type="email" className="bg-secondary/50 font-mono" {...field} />
+                        <Input
+                          placeholder="john@example.com"
+                          type="email"
+                          className="bg-secondary/50 font-mono"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -125,16 +148,20 @@ export default function Register() {
                   name="role"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Target Role</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                        Target Role
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="bg-secondary/50 font-mono">
-                            <SelectValue placeholder="Select primary role" />
+                            <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {ROLES.map(role => (
-                            <SelectItem key={role} value={role}>{role}</SelectItem>
+                          {ROLES.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -147,9 +174,16 @@ export default function Register() {
                   name="yearsOfExperience"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Years of Experience</FormLabel>
+                      <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                        Years of Experience
+                      </FormLabel>
                       <FormControl>
-                        <Input type="number" min={5} className="bg-secondary/50 font-mono" {...field} />
+                        <Input
+                          type="number"
+                          min={5}
+                          className="bg-secondary/50 font-mono"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -162,9 +196,15 @@ export default function Register() {
                 name="skills"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Core Skills (CSV)</FormLabel>
+                    <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Core Skills (comma-separated)
+                    </FormLabel>
                     <FormControl>
-                      <Input placeholder="React, Node.js, System Design, AWS" className="bg-secondary/50 font-mono" {...field} />
+                      <Input
+                        placeholder="React, Node.js, System Design, AWS"
+                        className="bg-secondary/50 font-mono"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -176,16 +216,32 @@ export default function Register() {
                 name="linkedinUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">LinkedIn (Optional)</FormLabel>
+                    <FormLabel className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      LinkedIn (Optional)
+                    </FormLabel>
                     <FormControl>
-                      <Input placeholder="https://linkedin.com/in/johndoe" className="bg-secondary/50 font-mono" {...field} />
+                      <Input
+                        placeholder="https://linkedin.com/in/johndoe"
+                        className="bg-secondary/50 font-mono"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <Button type="submit" className="w-full font-mono text-sm tracking-wider h-12 mt-4" disabled={createCandidate.isPending}>
+              {createCandidate.isError && (
+                <p className="text-sm text-destructive font-mono">
+                  Registration failed. Please check your details and try again.
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full font-mono text-sm tracking-wider h-12 mt-2"
+                disabled={createCandidate.isPending}
+              >
                 {createCandidate.isPending ? "INITIALIZING..." : "PROCEED TO CV UPLOAD"}
               </Button>
             </form>
