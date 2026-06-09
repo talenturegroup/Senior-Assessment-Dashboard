@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,15 +11,20 @@ export default function Profile() {
   const { candidateId } = useCandidate();
   const [file, setFile] = useState<File | null>(null);
   const [cvText, setCvText] = useState<string>("");
-  
+
+  useEffect(() => {
+    if (!candidateId) {
+      setLocation("/register");
+    }
+  }, [candidateId, setLocation]);
+
   const { data: candidate, isLoading: isLoadingCandidate } = useGetCandidate(candidateId as number, {
     query: { enabled: !!candidateId }
   });
-  
+
   const uploadCV = useUploadCandidateCV();
 
   if (!candidateId) {
-    setLocation("/");
     return null;
   }
 

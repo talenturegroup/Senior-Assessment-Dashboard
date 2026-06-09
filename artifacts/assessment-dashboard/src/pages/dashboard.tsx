@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useCandidate } from "../lib/use-candidate";
 import { useGetCandidate, useGetDashboardStats, useListSessions, useCreateSession } from "@workspace/api-client-react";
