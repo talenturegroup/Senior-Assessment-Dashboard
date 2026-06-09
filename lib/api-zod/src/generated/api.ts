@@ -36,6 +36,28 @@ export const CreateCandidateBody = zod.object({
 
 
 /**
+ * @summary Sign in an existing candidate by email
+ */
+export const SignInCandidateBody = zod.object({
+  "email": zod.string()
+})
+
+export const SignInCandidateResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "yearsOfExperience": zod.number(),
+  "skills": zod.array(zod.string()),
+  "linkedinUrl": zod.string().nullish(),
+  "cvText": zod.string().nullish(),
+  "cvFileName": zod.string().nullish(),
+  "profileComplete": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Get candidate profile
  */
 export const GetCandidateParams = zod.object({

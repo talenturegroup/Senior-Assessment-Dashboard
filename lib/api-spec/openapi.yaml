@@ -55,6 +55,27 @@ paths:
         "400":
           description: Bad request
 
+  /candidates/signin:
+    post:
+      operationId: signInCandidate
+      tags: [candidates]
+      summary: Sign in an existing candidate by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "404":
+          description: Not found
+
   /candidates/{id}:
     get:
       operationId: getCandidate
@@ -440,6 +461,13 @@ components:
         cvText:
           type: string
         cvFileName:
+          type: string
+
+    SignInInput:
+      type: object
+      required: [email]
+      properties:
+        email:
           type: string
 
     Role:

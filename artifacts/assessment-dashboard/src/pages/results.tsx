@@ -12,8 +12,8 @@ export default function Results() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const id = parseInt(sessionId!, 10);
 
-  const { data: session } = useGetSession(id, { query: { enabled: !!id } });
-  const { data: evaluation, isLoading } = useGetEvaluation(id, { query: { enabled: !!id } });
+  const { data: session } = useGetSession(id);
+  const { data: evaluation, isLoading } = useGetEvaluation(id);
 
   if (isLoading || !evaluation) {
     return (

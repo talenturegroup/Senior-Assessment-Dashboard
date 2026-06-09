@@ -43,10 +43,11 @@ Return ONLY valid JSON array with this format:
 
     const content = completion.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(content);
-    const questions: GeneratedQuestion[] = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
+    const questions: Array<{ questionText?: string; question?: string; questionType?: string }> =
+      Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
     return questions.slice(0, 8).map((q, i) => ({
       questionText: q.questionText ?? q.question ?? `Question ${i + 1}`,
-      questionType: (["technical", "system_design", "behavioral"].includes(q.questionType) ? q.questionType : "technical") as GeneratedQuestion["questionType"],
+      questionType: (["technical", "system_design", "behavioral"].includes(q.questionType ?? "") ? q.questionType : "technical") as GeneratedQuestion["questionType"],
       orderIndex: i,
     }));
   } catch (err) {

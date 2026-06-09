@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useCandidate } from "../lib/use-candidate";
-import { useGetCandidate, useGetDashboardStats, useListSessions, useCreateSession } from "@workspace/api-client-react";
+import { useGetCandidate, useGetDashboardStats, useListSessions, useCreateSession, getListSessionsQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,14 +116,12 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { candidateId } = useCandidate();
 
-  const { data: candidate, isLoading: isLoadingCandidate } = useGetCandidate(candidateId as number, {
-    query: { enabled: !!candidateId }
-  });
+  const { data: candidate, isLoading: isLoadingCandidate } = useGetCandidate(candidateId as number);
 
   const { data: stats } = useGetDashboardStats();
   const { data: sessions, isLoading: isLoadingSessions } = useListSessions(
     { candidateId: candidateId as number },
-    { query: { enabled: !!candidateId } }
+    { query: { enabled: !!candidateId, queryKey: getListSessionsQueryKey({ candidateId: candidateId as number }) } }
   );
 
   const createSession = useCreateSession();

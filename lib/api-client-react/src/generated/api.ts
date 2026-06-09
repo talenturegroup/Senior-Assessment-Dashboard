@@ -35,7 +35,8 @@ import type {
   Session,
   SessionInput,
   SessionSummary,
-  SessionUpdate
+  SessionUpdate,
+  SignInInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -196,6 +197,77 @@ export const useCreateCandidate = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreateCandidateMutationOptions(options));
+    }
+
+export const getSignInCandidateUrl = () => {
+
+
+
+
+  return `/api/candidates/signin`
+}
+
+/**
+ * @summary Sign in an existing candidate by email
+ */
+export const signInCandidate = async (signInInput: SignInInput, options?: RequestInit): Promise<Candidate> => {
+
+  return customFetch<Candidate>(getSignInCandidateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      signInInput,)
+  }
+);}
+
+
+
+
+export const getSignInCandidateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof signInCandidate>>, TError,{data: BodyType<SignInInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof signInCandidate>>, TError,{data: BodyType<SignInInput>}, TContext> => {
+
+const mutationKey = ['signInCandidate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof signInCandidate>>, {data: BodyType<SignInInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  signInCandidate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SignInCandidateMutationResult = NonNullable<Awaited<ReturnType<typeof signInCandidate>>>
+    export type SignInCandidateMutationBody = BodyType<SignInInput>
+    export type SignInCandidateMutationError = ErrorType<void>
+
+    /**
+ * @summary Sign in an existing candidate by email
+ */
+export const useSignInCandidate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof signInCandidate>>, TError,{data: BodyType<SignInInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof signInCandidate>>,
+        TError,
+        {data: BodyType<SignInInput>},
+        TContext
+      > => {
+      return useMutation(getSignInCandidateMutationOptions(options));
     }
 
 export const getGetCandidateUrl = (id: number,) => {

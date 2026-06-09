@@ -11,6 +11,7 @@ import {
   UploadCandidateCVParams,
   UploadCandidateCVBody,
   UploadCandidateCVResponse,
+  SignInCandidateBody,
 } from "@workspace/api-zod";
 import { serializeDates } from "../lib/serialize";
 
@@ -46,6 +47,26 @@ router.post("/candidates", async (req, res): Promise<void> => {
     .returning();
 
   res.status(201).json(GetCandidateResponse.parse(serializeDates(candidate)));
+});
+
+router.post("/candidates/signin", async (req, res): Promise<void> => {
+  const parsed = SignInCandidateBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [candidate] = await db
+    .select()
+    .from(candidatesTable)
+    .where(eq(candidatesTable.email, parsed.data.email));
+
+  if (!candidate) {
+    res.status(404).json({ error: "No account found with this email. Please sign up first." });
+    return;
+  }
+
+  res.json(GetCandidateResponse.parse(serializeDates(candidate)));
 });
 
 router.get("/candidates/:id", async (req, res): Promise<void> => {

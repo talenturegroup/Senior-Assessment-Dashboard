@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
-import { useGetSession, useGetSessionQuestions, useSubmitAnswer, useEvaluateSession, useGenerateSessionQuestions } from "@workspace/api-client-react";
+import { useGetSession, useGetSessionQuestions, useSubmitAnswer, useEvaluateSession, useGenerateSessionQuestions, getGetSessionQuestionsQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,8 +15,10 @@ export default function Interview() {
   
   const { videoRef, error: cameraError } = useMediaStream();
   
-  const { data: session } = useGetSession(id, { query: { enabled: !!id } });
-  const { data: questions, isLoading: isLoadingQuestions } = useGetSessionQuestions(id, { query: { enabled: !!id && session?.questionsGenerated } });
+  const { data: session } = useGetSession(id);
+  const { data: questions, isLoading: isLoadingQuestions } = useGetSessionQuestions(id, {
+    query: { enabled: !!id && !!session?.questionsGenerated, queryKey: getGetSessionQuestionsQueryKey(id) },
+  });
   
   const generateQuestions = useGenerateSessionQuestions();
   const submitAnswer = useSubmitAnswer();

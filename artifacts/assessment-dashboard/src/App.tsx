@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 
 import Landing from "./pages/landing";
 import Register from "./pages/register";
+import SignIn from "./pages/signin";
 import Profile from "./pages/profile";
 import Dashboard from "./pages/dashboard";
 import Interview from "./pages/interview";
@@ -18,6 +19,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/register" component={Register} />
+      <Route path="/signin" component={SignIn} />
       <Route path="/profile" component={Profile} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/interview/:sessionId" component={Interview} />

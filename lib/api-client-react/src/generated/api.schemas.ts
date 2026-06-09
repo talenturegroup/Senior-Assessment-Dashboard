@@ -53,6 +53,10 @@ export interface CVUpload {
   cvFileName: string;
 }
 
+export interface SignInInput {
+  email: string;
+}
+
 export interface Role {
   id: number;
   title: string;

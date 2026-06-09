@@ -18,9 +18,7 @@ export default function Profile() {
     }
   }, [candidateId, setLocation]);
 
-  const { data: candidate, isLoading: isLoadingCandidate } = useGetCandidate(candidateId as number, {
-    query: { enabled: !!candidateId }
-  });
+  const { data: candidate, isLoading: isLoadingCandidate } = useGetCandidate(candidateId as number);
 
   const uploadCV = useUploadCandidateCV();
 

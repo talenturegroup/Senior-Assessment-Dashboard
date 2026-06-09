@@ -1,0 +1,1 @@
+- [Orval + react-query v5 queryKey](orval-react-query-v5.md) — generated query hooks fail typecheck on `{ query: { enabled } }` (queryKey now required); drop options on path hooks or pass the generated key getter.
