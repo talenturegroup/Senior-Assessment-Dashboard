@@ -1,0 +1,158 @@
+Build a production-ready web application where senior-level candidates can:
+•	Sign up and complete their professional profile
+•	Upload their CV and optionally link LinkedIn
+•	Automatically undergo a mandatory AI-powered live video interview
+•	Be assessed in real-time based on their job role and CV
+•	Receive a clear performance score, rating, and feedback
+•	See their final evaluation on a personal dashboard
+The system should behave like an AI interviewer + evaluator, not just a quiz platform.
+________________________________________
+ CORE RULE (NON-NEGOTIABLE)
+There are NO beginner or mid-level flows.
+ Every candidate is treated as senior-level
+ Every assessment is a live AI video interview
+ No multiple choice or text-only assessments
+________________________________________
+ REQUIRED SYSTEM BEHAVIOR
+1. Candidate Onboarding
+•	User signs up and logs in
+•	Completes profile:
+o	Name
+o	Role / Job Title (required)
+o	Years of experience (must be ≥ 5 years)
+o	Skills (tag input)
+o	CV upload (required)
+o	LinkedIn (optional)
+•	System parses CV to extract:
+o	Skills
+o	Experience level
+o	Technologies
+________________________________________
+2. Intelligent Interview Initialization
+Once profile is complete:
+•	System generates a custom interview session using:
+o	Candidate CV
+o	Selected Role
+o	Predefined or uploaded Job Description (JD)
+•	AI prepares:
+o	Technical questions
+o	System design questions
+o	Behavioral questions
+________________________________________
+3.  Mandatory AI Video Interview (Core Feature)
+•	Launch a live video interview session
+•	Use WebRTC for video capture
+•	AI interviewer asks questions dynamically
+During interview:
+•	Capture:
+o	Video
+o	Audio
+o	Transcript (speech-to-text)
+•	AI adapts questions in real-time based on:
+o	Candidate responses
+o	Depth of knowledge
+o	Confidence signals (optional)
+________________________________________
+4.  AI Evaluation Engine
+After interview:
+Evaluate candidate across:
+•	Technical depth
+•	Problem-solving ability
+•	Communication clarity
+•	Relevance to job role
+•	Seniority signals
+Generate:
+•	Numerical score (0–100)
+•	Role fit score
+•	Final rating (e.g. Strong Hire / Hire / No Hire)
+•	Strengths
+•	Weaknesses
+•	Improvement suggestions
+________________________________________
+5.  Candidate Dashboard
+After completion, display:
+•	Final Score (prominent)
+•	Rating badge
+•	Breakdown:
+o	Technical
+o	Communication
+o	Domain expertise
+•	Interview summary:
+o	Questions asked
+o	Key answers
+o	AI feedback
+•	Status:
+o	“Ready for Hiring” or not
+________________________________________
+6.  JD-Driven Intelligence
+•	Accept Job Description input
+•	Extract required:
+o	Skills
+o	Seniority level
+o	Responsibilities
+•	Use this to:
+o	Tailor interview questions
+o	Score candidate fit precisely
+________________________________________
+ TECH CONSTRAINTS
+Frontend
+•	React (Vite)
+•	Tailwind CSS
+Backend
+•	Node.js + Express
+Database
+•	PostgreSQL (Prisma ORM)
+AI
+•	OpenAI (or equivalent) for:
+o	Question generation
+o	Answer evaluation
+Video
+•	WebRTC (mandatory)
+File Upload
+•	Multer + Cloudinary (or local storage)
+________________________________________
+ USER FLOW (STRICT)
+1.	User signs up
+2.	Completes profile + uploads CV
+3.	Clicks “Start Interview”
+4.	System launches AI video interview immediately
+5.	Interview runs dynamically
+6.	AI evaluates responses
+7.	Results appear on dashboard
+________________________________________
+ UI DIRECTION
+•	Clean, modern dashboard (similar to Mercor style)
+•	Sections:
+o	Assessments
+o	Profile
+o	Results
+•	Include:
+o	Gradient header
+o	Card-based interview modules
+o	“Start Interview” CTA
+________________________________________
+ SUCCESS CRITERIA
+The app is complete when:
+•	A user can go from signup → interview → scored dashboard
+•	Video interview works end-to-end
+•	AI generates and evaluates questions dynamically
+•	Final rating reflects candidate’s fit to role
+________________________________________
+ AI PROMPT EXAMPLES (INTERNAL)
+Question Generation
+
+Generate senior-level interview questions for a [ROLE] based on this CV and job description. Focus on depth, real-world scenarios, and system design.
+
+Evaluation
+
+Evaluate this candidate’s response for senior-level expectations. Score based on depth, correctness, and clarity. Return structured feedback.
+
+________________________________________
+ BUILD PRIORITY ORDER
+1.	Auth + Profile + CV upload
+2.	Video interview setup (WebRTC)
+3.	AI question generation
+4.	Real-time interview flow
+5.	AI evaluation + scoring
+6.	Dashboard UI
+

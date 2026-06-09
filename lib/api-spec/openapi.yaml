@@ -1,22 +1,31 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Assessment Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: candidates
+    description: Candidate profile management
+  - name: sessions
+    description: Interview session management
+  - name: evaluations
+    description: Evaluation results
+  - name: roles
+    description: Job roles
+  - name: dashboard
+    description: Dashboard summary
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +33,590 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /candidates:
+    post:
+      operationId: createCandidate
+      tags: [candidates]
+      summary: Create candidate profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "400":
+          description: Bad request
+
+  /candidates/{id}:
+    get:
+      operationId: getCandidate
+      tags: [candidates]
+      summary: Get candidate profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCandidate
+      tags: [candidates]
+      summary: Update candidate profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  /candidates/{id}/cv:
+    post:
+      operationId: uploadCandidateCV
+      tags: [candidates]
+      summary: Upload CV for candidate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CVUpload"
+      responses:
+        "200":
+          description: CV uploaded and parsed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  /roles:
+    get:
+      operationId: listRoles
+      tags: [roles]
+      summary: List available job roles
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Role"
+
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List all interview sessions
+      parameters:
+        - name: candidateId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a new interview session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get interview session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSession
+      tags: [sessions]
+      summary: Update interview session status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/{id}/questions:
+    get:
+      operationId: getSessionQuestions
+      tags: [sessions]
+      summary: Get AI-generated questions for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+    post:
+      operationId: generateSessionQuestions
+      tags: [sessions]
+      summary: Generate AI questions for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Questions generated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+
+  /sessions/{id}/answers:
+    post:
+      operationId: submitAnswer
+      tags: [sessions]
+      summary: Submit a candidate answer for evaluation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnswerInput"
+      responses:
+        "201":
+          description: Answer submitted and evaluated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Answer"
+
+  /sessions/{id}/evaluate:
+    post:
+      operationId: evaluateSession
+      tags: [sessions]
+      summary: Trigger final AI evaluation for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Evaluation complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evaluation"
+
+  /evaluations/{sessionId}:
+    get:
+      operationId: getEvaluation
+      tags: [evaluations]
+      summary: Get evaluation result for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evaluation"
+        "404":
+          description: Not found
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard summary statistics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-sessions:
+    get:
+      operationId: getRecentSessions
+      tags: [dashboard]
+      summary: Get recent interview sessions
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionSummary"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    Candidate:
+      type: object
+      required: [id, name, email, role, yearsOfExperience, skills, profileComplete, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        yearsOfExperience:
+          type: integer
+        skills:
+          type: array
+          items:
+            type: string
+        linkedinUrl:
+          type: ["string", "null"]
+        cvText:
+          type: ["string", "null"]
+        cvFileName:
+          type: ["string", "null"]
+        profileComplete:
+          type: boolean
+        createdAt:
+          type: string
+
+    CandidateInput:
+      type: object
+      required: [name, email, role, yearsOfExperience, skills]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        role:
+          type: string
+          minLength: 1
+        yearsOfExperience:
+          type: integer
+          minimum: 5
+        skills:
+          type: array
+          items:
+            type: string
+        linkedinUrl:
+          type: string
+
+    CandidateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+        yearsOfExperience:
+          type: integer
+          minimum: 5
+        skills:
+          type: array
+          items:
+            type: string
+        linkedinUrl:
+          type: string
+        profileComplete:
+          type: boolean
+
+    CVUpload:
+      type: object
+      required: [cvText, cvFileName]
+      properties:
+        cvText:
+          type: string
+        cvFileName:
+          type: string
+
+    Role:
+      type: object
+      required: [id, title, category, description]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+
+    Session:
+      type: object
+      required: [id, candidateId, roleTitle, status, createdAt]
+      properties:
+        id:
+          type: integer
+        candidateId:
+          type: integer
+        roleTitle:
+          type: string
+        jobDescription:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, in_progress, completed, evaluated]
+        questionsGenerated:
+          type: boolean
+        startedAt:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SessionInput:
+      type: object
+      required: [candidateId, roleTitle]
+      properties:
+        candidateId:
+          type: integer
+        roleTitle:
+          type: string
+        jobDescription:
+          type: string
+
+    SessionUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, in_progress, completed, evaluated]
+        startedAt:
+          type: string
+        completedAt:
+          type: string
+
+    Question:
+      type: object
+      required: [id, sessionId, questionText, questionType, orderIndex]
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        questionText:
+          type: string
+        questionType:
+          type: string
+          enum: [technical, system_design, behavioral]
+        orderIndex:
+          type: integer
+
+    Answer:
+      type: object
+      required: [id, sessionId, questionId, transcript, score, feedback, createdAt]
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        questionId:
+          type: integer
+        transcript:
+          type: string
+        score:
+          type: integer
+        feedback:
+          type: string
+        strengths:
+          type: ["string", "null"]
+        weaknesses:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    AnswerInput:
+      type: object
+      required: [questionId, transcript]
+      properties:
+        questionId:
+          type: integer
+        transcript:
+          type: string
+
+    Evaluation:
+      type: object
+      required: [id, sessionId, overallScore, roleFitScore, rating, technicalScore, communicationScore, domainScore, strengths, weaknesses, suggestions, readyForHiring, createdAt]
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        overallScore:
+          type: integer
+        roleFitScore:
+          type: integer
+        rating:
+          type: string
+          enum: [strong_hire, hire, no_hire]
+        technicalScore:
+          type: integer
+        communicationScore:
+          type: integer
+        domainScore:
+          type: integer
+        strengths:
+          type: string
+        weaknesses:
+          type: string
+        suggestions:
+          type: string
+        readyForHiring:
+          type: boolean
+        summary:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    DashboardStats:
+      type: object
+      required: [totalCandidates, completedSessions, averageScore, hireRate, strongHireCount, hireCount, noHireCount]
+      properties:
+        totalCandidates:
+          type: integer
+        completedSessions:
+          type: integer
+        averageScore:
+          type: number
+        hireRate:
+          type: number
+        strongHireCount:
+          type: integer
+        hireCount:
+          type: integer
+        noHireCount:
+          type: integer
+
+    SessionSummary:
+      type: object
+      required: [id, candidateName, roleTitle, status, overallScore, rating, createdAt]
+      properties:
+        id:
+          type: integer
+        candidateName:
+          type: string
+        roleTitle:
+          type: string
+        status:
+          type: string
+        overallScore:
+          type: ["integer", "null"]
+        rating:
+          type: ["string", "null"]
+        createdAt:
+          type: string

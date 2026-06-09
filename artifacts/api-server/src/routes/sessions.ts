@@ -1,0 +1,323 @@
+import { Router, type IRouter } from "express";
+import { eq } from "drizzle-orm";
+import { db, sessionsTable, questionsTable, answersTable, evaluationsTable, candidatesTable } from "@workspace/db";
+import {
+  CreateSessionBody,
+  GetSessionParams,
+  GetSessionResponse,
+  UpdateSessionParams,
+  UpdateSessionBody,
+  UpdateSessionResponse,
+  GetSessionQuestionsParams,
+  GetSessionQuestionsResponse,
+  GenerateSessionQuestionsParams,
+  SubmitAnswerParams,
+  SubmitAnswerBody,
+  EvaluateSessionParams,
+  EvaluateSessionResponse,
+  ListSessionsQueryParams,
+  ListSessionsResponse,
+} from "@workspace/api-zod";
+import { generateInterviewQuestions, evaluateAnswer, generateFinalEvaluation } from "../lib/ai";
+
+const router: IRouter = Router();
+
+router.get("/sessions", async (req, res): Promise<void> => {
+  const query = ListSessionsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+
+  let sessions;
+  if (query.data.candidateId) {
+    sessions = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.candidateId, query.data.candidateId))
+      .orderBy(sessionsTable.createdAt);
+  } else {
+    sessions = await db.select().from(sessionsTable).orderBy(sessionsTable.createdAt);
+  }
+
+  res.json(ListSessionsResponse.parse(sessions));
+});
+
+router.post("/sessions", async (req, res): Promise<void> => {
+  const parsed = CreateSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [session] = await db
+    .insert(sessionsTable)
+    .values({
+      candidateId: parsed.data.candidateId,
+      roleTitle: parsed.data.roleTitle,
+      jobDescription: parsed.data.jobDescription ?? null,
+      status: "pending",
+      questionsGenerated: false,
+    })
+    .returning();
+
+  res.status(201).json(GetSessionResponse.parse(session));
+});
+
+router.get("/sessions/:id", async (req, res): Promise<void> => {
+  const params = GetSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  res.json(GetSessionResponse.parse(session));
+});
+
+router.patch("/sessions/:id", async (req, res): Promise<void> => {
+  const params = UpdateSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const parsed = UpdateSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const updateData: Partial<typeof sessionsTable.$inferInsert> = {};
+  if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
+  if (parsed.data.startedAt !== undefined) updateData.startedAt = new Date(parsed.data.startedAt);
+  if (parsed.data.completedAt !== undefined) updateData.completedAt = new Date(parsed.data.completedAt);
+
+  const [session] = await db
+    .update(sessionsTable)
+    .set(updateData)
+    .where(eq(sessionsTable.id, params.data.id))
+    .returning();
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  res.json(UpdateSessionResponse.parse(session));
+});
+
+router.get("/sessions/:id/questions", async (req, res): Promise<void> => {
+  const params = GetSessionQuestionsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const questions = await db
+    .select()
+    .from(questionsTable)
+    .where(eq(questionsTable.sessionId, params.data.id))
+    .orderBy(questionsTable.orderIndex);
+
+  res.json(GetSessionQuestionsResponse.parse(questions));
+});
+
+router.post("/sessions/:id/questions", async (req, res): Promise<void> => {
+  const params = GenerateSessionQuestionsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  // Check if questions already generated
+  if (session.questionsGenerated) {
+    const existing = await db
+      .select()
+      .from(questionsTable)
+      .where(eq(questionsTable.sessionId, params.data.id))
+      .orderBy(questionsTable.orderIndex);
+    res.status(201).json(GetSessionQuestionsResponse.parse(existing));
+    return;
+  }
+
+  // Get candidate CV
+  const [candidate] = await db
+    .select()
+    .from(candidatesTable)
+    .where(eq(candidatesTable.id, session.candidateId));
+
+  const generated = await generateInterviewQuestions(
+    session.roleTitle,
+    candidate?.cvText ?? null,
+    session.jobDescription
+  );
+
+  const inserted = await db
+    .insert(questionsTable)
+    .values(
+      generated.map(q => ({
+        sessionId: params.data.id,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        orderIndex: q.orderIndex,
+      }))
+    )
+    .returning();
+
+  await db
+    .update(sessionsTable)
+    .set({ questionsGenerated: true, status: "in_progress", startedAt: new Date() })
+    .where(eq(sessionsTable.id, params.data.id));
+
+  res.status(201).json(GetSessionQuestionsResponse.parse(inserted));
+});
+
+router.post("/sessions/:id/answers", async (req, res): Promise<void> => {
+  const params = SubmitAnswerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const parsed = SubmitAnswerBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  const [question] = await db
+    .select()
+    .from(questionsTable)
+    .where(eq(questionsTable.id, parsed.data.questionId));
+
+  if (!question) {
+    res.status(404).json({ error: "Question not found" });
+    return;
+  }
+
+  const evaluation = await evaluateAnswer(
+    question.questionText,
+    parsed.data.transcript,
+    session.roleTitle
+  );
+
+  const [answer] = await db
+    .insert(answersTable)
+    .values({
+      sessionId: params.data.id,
+      questionId: parsed.data.questionId,
+      transcript: parsed.data.transcript,
+      score: evaluation.score,
+      feedback: evaluation.feedback,
+      strengths: evaluation.strengths,
+      weaknesses: evaluation.weaknesses,
+    })
+    .returning();
+
+  res.status(201).json(answer);
+});
+
+router.post("/sessions/:id/evaluate", async (req, res): Promise<void> => {
+  const params = EvaluateSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  // Check for existing evaluation
+  const [existing] = await db
+    .select()
+    .from(evaluationsTable)
+    .where(eq(evaluationsTable.sessionId, params.data.id));
+
+  if (existing) {
+    res.json(EvaluateSessionResponse.parse(existing));
+    return;
+  }
+
+  // Get all answers with questions
+  const answers = await db
+    .select({
+      questionText: questionsTable.questionText,
+      questionType: questionsTable.questionType,
+      transcript: answersTable.transcript,
+      score: answersTable.score,
+    })
+    .from(answersTable)
+    .leftJoin(questionsTable, eq(answersTable.questionId, questionsTable.id))
+    .where(eq(answersTable.sessionId, params.data.id));
+
+  const [candidate] = await db
+    .select()
+    .from(candidatesTable)
+    .where(eq(candidatesTable.id, session.candidateId));
+
+  const evalResult = await generateFinalEvaluation(
+    session.roleTitle,
+    answers.map(a => ({
+      question: a.questionText ?? "",
+      transcript: a.transcript,
+      score: a.score,
+      questionType: a.questionType ?? "technical",
+    })),
+    candidate?.cvText ?? null
+  );
+
+  const [evaluation] = await db
+    .insert(evaluationsTable)
+    .values({
+      sessionId: params.data.id,
+      ...evalResult,
+    })
+    .returning();
+
+  // Update session status
+  await db
+    .update(sessionsTable)
+    .set({ status: "evaluated", completedAt: new Date() })
+    .where(eq(sessionsTable.id, params.data.id));
+
+  res.json(EvaluateSessionResponse.parse(evaluation));
+});
+
+export default router;

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "AI Assessment Dashboard"
+version = "1.0.0"
+id = "artifacts/assessment-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21613
+
+[services.development]
+run = "pnpm --filter @workspace/assessment-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/assessment-dashboard", "run", "build" ]
+publicDir = "artifacts/assessment-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21613"
+BASE_PATH = "/"
