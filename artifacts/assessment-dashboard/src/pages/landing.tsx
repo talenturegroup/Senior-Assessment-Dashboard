@@ -6,7 +6,7 @@ import { RoleCard } from "../components/role-card";
 import { ALL_ROLES, ROLE_CATEGORIES, type RoleCategory } from "../lib/roles";
 import { Button } from "@/components/ui/button";
 import {
-  Terminal, Layers, ArrowRight, Video, FileText, Gauge,
+  Layers, ArrowRight, Video, FileText, Gauge,
 } from "lucide-react";
 
 type Filter = "All" | RoleCategory;
@@ -45,10 +45,6 @@ export default function Landing() {
 
         {/* Hero */}
         <div className="mx-auto max-w-3xl space-y-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 font-mono text-xs text-primary">
-            <Terminal className="h-3.5 w-3.5" />
-            <span>SENIOR_ASSESSMENT_PROTOCOL</span>
-          </div>
           <h1 className="text-balance text-5xl font-extrabold tracking-tighter md:text-6xl">
             Prove your skills with{" "}
             <span className="bg-gradient-to-r from-primary to-cyan-300 bg-clip-text text-transparent">

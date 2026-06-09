@@ -10,30 +10,14 @@ const LINKS: { heading: string; items: { label: string; href: string }[] }[] = [
       { label: "Profile", href: "/profile" },
     ],
   },
-  {
-    heading: "Company",
-    items: [
-      { label: "About", href: "/" },
-      { label: "Careers", href: "/" },
-      { label: "Contact", href: "/" },
-    ],
-  },
-  {
-    heading: "Legal",
-    items: [
-      { label: "Privacy", href: "/" },
-      { label: "Terms", href: "/" },
-      { label: "Security", href: "/" },
-    ],
-  },
 ];
 
 export function Footer() {
   return (
     <footer className="relative z-10 mt-auto border-t border-border/60 bg-background/60 backdrop-blur">
       <div className="container mx-auto max-w-7xl px-4 py-10">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+          <div className="sm:col-span-2">
             <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-primary">
               <BrainCircuit className="h-5 w-5" />
               <span>Arvencor</span>
@@ -71,12 +55,9 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 sm:flex-row">
+        <div className="mt-10 border-t border-border/60 pt-6">
           <p className="font-mono text-xs text-muted-foreground">
             © {new Date().getFullYear()} Arvencor. All rights reserved.
-          </p>
-          <p className="font-mono text-[11px] text-muted-foreground/70">
-            SENIOR_ASSESSMENT_PROTOCOL // v3.0
           </p>
         </div>
       </div>
