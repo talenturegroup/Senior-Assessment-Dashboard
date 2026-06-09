@@ -5,6 +5,7 @@ import { useGetDashboardStats, useListSessions, useCreateSession } from "@worksp
 import { Navbar } from "../components/navbar";
 import { Footer } from "../components/footer";
 import { RoleCard } from "../components/role-card";
+import { AssessmentSpotlight } from "../components/assessment-spotlight";
 import { ALL_ROLES, ROLE_CATEGORIES, type RoleCategory } from "../lib/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,14 @@ export default function Dashboard() {
     { icon: ShieldAlert, label: "HIRE_RATE", value: stats?.hireRate != null ? `${stats.hireRate.toFixed(0)}%` : "--" },
   ];
 
+  if (candidate && !candidate.profileComplete) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background font-mono text-sm text-muted-foreground">
+        REDIRECTING_TO_PROFILE…
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <Navbar />
@@ -108,6 +117,18 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Assessment Spotlight — tied to the role the candidate applied for */}
+        {candidate?.role && (
+          <AssessmentSpotlight
+            appliedRole={candidate.role}
+            sessions={sessions}
+            onStart={handleRoleClick}
+            onResume={(sessionId) => setLocation(`/interview/${sessionId}`)}
+            onViewResults={(sessionId) => setLocation(`/results/${sessionId}`)}
+            isStarting={createSession.isPending}
+          />
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

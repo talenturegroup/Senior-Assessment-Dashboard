@@ -1,2 +1,3 @@
 - [Orval + react-query v5 queryKey](orval-react-query-v5.md) — generated query hooks fail typecheck on `{ query: { enabled } }` (queryKey now required); drop options on path hooks or pass the generated key getter.
 - [Clerk → numeric candidate bridge](clerk-candidate-bridge.md) — Clerk maps to numeric candidate rows via `clerkUserId`; `/candidates/me` only, cookie auth, ownership-check session routes (404 on mismatch).
+- [Invalidate query on server flag flip](query-invalidation-on-server-flag.md) — render gates keyed on a server field hang forever unless the mutation that flips it invalidates the owning query; generated hooks don't auto-refetch.

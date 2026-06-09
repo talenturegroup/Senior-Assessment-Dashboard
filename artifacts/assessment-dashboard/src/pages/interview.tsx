@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
-import { useGetSession, useGetSessionQuestions, useSubmitAnswer, useEvaluateSession, useGenerateSessionQuestions, getGetSessionQuestionsQueryKey } from "@workspace/api-client-react";
+import { useGetSession, useGetSessionQuestions, useSubmitAnswer, useEvaluateSession, useGenerateSessionQuestions, getGetSessionQuestionsQueryKey, getGetSessionQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +15,8 @@ export default function Interview() {
   const id = parseInt(sessionId!, 10);
   
   const { videoRef, error: cameraError } = useMediaStream();
-  
+  const queryClient = useQueryClient();
+
   const { data: session } = useGetSession(id);
   const { data: questions, isLoading: isLoadingQuestions } = useGetSessionQuestions(id, {
     query: { enabled: !!id && !!session?.questionsGenerated, queryKey: getGetSessionQuestionsQueryKey(id) },
@@ -31,7 +33,15 @@ export default function Interview() {
   // Auto-generate questions if not generated yet
   useEffect(() => {
     if (session && !session.questionsGenerated && !generateQuestions.isPending) {
-      generateQuestions.mutate({ id });
+      generateQuestions.mutate(
+        { id },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey(id) });
+            queryClient.invalidateQueries({ queryKey: getGetSessionQuestionsQueryKey(id) });
+          },
+        }
+      );
     }
   }, [session]);
 
