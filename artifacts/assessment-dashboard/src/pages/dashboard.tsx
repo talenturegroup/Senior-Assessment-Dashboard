@@ -1,124 +1,50 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useCurrentCandidate } from "../lib/use-candidate";
 import { useGetDashboardStats, useListSessions, useCreateSession } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Footer } from "../components/footer";
+import { RoleCard } from "../components/role-card";
+import { ALL_ROLES, ROLE_CATEGORIES, type RoleCategory } from "../lib/roles";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Activity, Play, ShieldAlert, BadgeCheck, Clock, Layers,
-  Shield, Server, Brain, Cloud, Briefcase, Code2, Cpu,
-  Smartphone, Database, Globe, Zap, Lock
+  Activity, ShieldAlert, BadgeCheck, Clock, Layers, ChevronRight,
 } from "lucide-react";
 
-const ALL_ROLES = [
-  {
-    title: "Cybersecurity Analyst",
-    category: "Security",
-    desc: "Threat analysis, incident response, SIEM, vulnerability management.",
-    icon: Lock,
-    color: "text-red-400",
-    border: "hover:border-red-400/40",
-  },
-  {
-    title: "Senior Software Engineer",
-    category: "Engineering",
-    desc: "System architecture, full-stack complexity, scalability.",
-    icon: Code2,
-    color: "text-cyan-400",
-    border: "hover:border-cyan-400/40",
-  },
-  {
-    title: "DevOps / Site Reliability Engineer",
-    category: "Infrastructure",
-    desc: "CI/CD pipelines, Kubernetes, observability, platform engineering.",
-    icon: Server,
-    color: "text-orange-400",
-    border: "hover:border-orange-400/40",
-  },
-  {
-    title: "Data Scientist / ML Engineer",
-    category: "Data & AI",
-    desc: "ML model design, feature engineering, experimentation at scale.",
-    icon: Brain,
-    color: "text-purple-400",
-    border: "hover:border-purple-400/40",
-  },
-  {
-    title: "Cloud Architect",
-    category: "Infrastructure",
-    desc: "AWS/GCP/Azure design, Terraform, distributed systems.",
-    icon: Cloud,
-    color: "text-blue-400",
-    border: "hover:border-blue-400/40",
-  },
-  {
-    title: "Product Manager (Technical)",
-    category: "Product",
-    desc: "Technical roadmaps, stakeholder alignment, product strategy.",
-    icon: Briefcase,
-    color: "text-yellow-400",
-    border: "hover:border-yellow-400/40",
-  },
-  {
-    title: "Full-Stack Developer",
-    category: "Engineering",
-    desc: "End-to-end features across frontend, backend, and database layers.",
-    icon: Globe,
-    color: "text-emerald-400",
-    border: "hover:border-emerald-400/40",
-  },
-  {
-    title: "Backend Engineer (Node.js / Python)",
-    category: "Engineering",
-    desc: "High-performance APIs, microservices, distributed systems.",
-    icon: Zap,
-    color: "text-amber-400",
-    border: "hover:border-amber-400/40",
-  },
-  {
-    title: "Frontend Engineer (React)",
-    category: "Engineering",
-    desc: "React performance, accessibility, component architecture.",
-    icon: Cpu,
-    color: "text-sky-400",
-    border: "hover:border-sky-400/40",
-  },
-  {
-    title: "AI / LLM Engineer",
-    category: "Data & AI",
-    desc: "LLM fine-tuning, RAG pipelines, prompt engineering, MLOps.",
-    icon: Brain,
-    color: "text-violet-400",
-    border: "hover:border-violet-400/40",
-  },
-  {
-    title: "Mobile Developer (iOS/Android)",
-    category: "Engineering",
-    desc: "Native and cross-platform apps, performance, device APIs.",
-    icon: Smartphone,
-    color: "text-rose-400",
-    border: "hover:border-rose-400/40",
-  },
-  {
-    title: "Database Administrator",
-    category: "Infrastructure",
-    desc: "Schema design, query optimization, replication, reliability.",
-    icon: Database,
-    color: "text-teal-400",
-    border: "hover:border-teal-400/40",
-  },
-];
+type Filter = "All" | RoleCategory;
+
+function initials(name?: string | null): string {
+  if (!name) return "··";
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function statusTone(status: string): string {
+  switch (status) {
+    case "evaluated":
+      return "text-emerald-400 border-emerald-400/30 bg-emerald-400/10";
+    case "in_progress":
+      return "text-amber-400 border-amber-400/30 bg-amber-400/10";
+    default:
+      return "text-muted-foreground border-border/60 bg-secondary/40";
+  }
+}
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { candidate, isLoading: isLoadingCandidate } = useCurrentCandidate();
+  const [filter, setFilter] = useState<Filter>("All");
 
   const { data: stats } = useGetDashboardStats();
   const { data: sessions, isLoading: isLoadingSessions } = useListSessions();
-
   const createSession = useCreateSession();
 
   useEffect(() => {
@@ -133,174 +59,162 @@ export default function Dashboard() {
       return;
     }
     createSession.mutate(
-      {
-        data: {
-          roleTitle,
-          jobDescription: `Standard senior-level assessment for ${roleTitle}`,
-        },
-      },
-      {
-        onSuccess: (session) => {
-          setLocation(`/interview/${session.id}`);
-        },
-      }
+      { data: { roleTitle, jobDescription: `Standard senior-level assessment for ${roleTitle}` } },
+      { onSuccess: (session) => setLocation(`/interview/${session.id}`) }
     );
   };
 
+  const visibleRoles = useMemo(
+    () => (filter === "All" ? ALL_ROLES : ALL_ROLES.filter((r) => r.category === filter)),
+    [filter]
+  );
+  const filters: Filter[] = ["All", ...ROLE_CATEGORIES];
+
+  const statCards = [
+    { icon: Activity, label: "PLATFORM_AVG", value: stats?.averageScore != null ? `${stats.averageScore.toFixed(0)}` : "--", suffix: "/ 100" },
+    { icon: BadgeCheck, label: "EVALUATIONS", value: stats?.completedSessions ?? "--" },
+    { icon: ShieldAlert, label: "HIRE_RATE", value: stats?.hireRate != null ? `${stats.hireRate.toFixed(0)}%` : "--" },
+  ];
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="relative flex min-h-screen flex-col bg-background">
       <Navbar />
 
-      <main className="flex-1 container mx-auto py-8 px-4 space-y-8 max-w-7xl">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808010_1px,transparent_1px),linear-gradient(to_bottom,#80808010_1px,transparent_1px)] bg-[size:28px_28px] [mask-image:radial-gradient(ellipse_at_top,black_20%,transparent_70%)]" />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[360px] w-[720px] -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
+
+      <main className="z-10 mx-auto w-full max-w-7xl flex-1 space-y-8 px-4 py-10">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              Assessment Center
-              {candidate?.profileComplete && (
-                <Badge variant="outline" className="text-primary border-primary font-mono text-xs">
-                  VERIFIED
-                </Badge>
-              )}
-            </h1>
-            <p className="text-muted-foreground mt-2 font-mono text-sm">
-              {isLoadingCandidate ? "Loading..." : `${candidate?.name ?? "—"} // ${candidate?.role || "—"}`}
-            </p>
+        <div className="flex flex-col gap-4 border-b border-border/60 pb-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 font-mono text-lg font-bold text-primary">
+              {initials(candidate?.name)}
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                  {isLoadingCandidate ? "Loading…" : `Welcome, ${candidate?.name?.split(" ")[0] ?? "Candidate"}`}
+                </h1>
+                {candidate?.profileComplete && (
+                  <Badge variant="outline" className="border-primary/40 font-mono text-[10px] text-primary">
+                    VERIFIED
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 font-mono text-sm text-muted-foreground">
+                {candidate?.role || "Select a role below to begin"}
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-card/50 backdrop-blur border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <Activity className="h-4 w-4" /> PLATFORM_AVG
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {stats?.averageScore ? `${stats.averageScore.toFixed(0)}` : "--"}
-                <span className="text-sm text-muted-foreground ml-1">/ 100</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <BadgeCheck className="h-4 w-4" /> EVALUATIONS
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats?.completedSessions ?? "--"}</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4" /> HIRE_RATE
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {stats?.hireRate != null ? `${stats.hireRate.toFixed(0)}%` : "--"}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {statCards.map((s) => {
+            const Icon = s.icon;
+            return (
+              <Card key={s.label} className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
+                    <p className="mt-0.5 text-2xl font-bold">
+                      {s.value}
+                      {s.suffix && <span className="ml-1 text-sm font-normal text-muted-foreground">{s.suffix}</span>}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
 
           {/* Role Cards */}
-          <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-lg font-bold font-mono tracking-tight flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" /> AVAILABLE_ASSESSMENTS
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {ALL_ROLES.map((role) => {
-                const Icon = role.icon;
-                return (
-                  <Card
-                    key={role.title}
-                    className={`border-border/40 transition-all duration-200 bg-card/40 cursor-pointer group ${role.border}`}
-                    onClick={() => handleRoleClick(role.title)}
+          <div className="space-y-5 lg:col-span-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <h2 className="flex items-center gap-2 font-mono text-lg font-bold tracking-tight">
+                <Layers className="h-5 w-5 text-primary" /> AVAILABLE_ASSESSMENTS
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {filters.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    aria-pressed={filter === f}
+                    onClick={() => setFilter(f)}
+                    className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                      filter === f
+                        ? "border-primary/50 bg-primary/15 text-primary"
+                        : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                    }`}
                   >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`p-1.5 rounded bg-secondary/60 shrink-0 ${role.color}`}>
-                            <Icon className="h-3.5 w-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <CardTitle className="text-sm leading-snug">{role.title}</CardTitle>
-                            <Badge variant="secondary" className="font-mono text-[10px] mt-0.5 px-1.5 py-0">
-                              {role.category}
-                            </Badge>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className={`font-mono text-xs shrink-0 h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity ${role.color} hover:bg-secondary/80`}
-                          onClick={(e) => { e.stopPropagation(); handleRoleClick(role.title); }}
-                          disabled={createSession.isPending}
-                        >
-                          <Play className="h-3 w-3 mr-1" /> START
-                        </Button>
-                      </div>
-                      <CardDescription className="text-xs mt-2 leading-relaxed">
-                        {role.desc}
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-                );
-              })}
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {visibleRoles.map((role) => (
+                <RoleCard
+                  key={role.title}
+                  role={role}
+                  onSelect={handleRoleClick}
+                  disabled={createSession.isPending}
+                />
+              ))}
             </div>
           </div>
 
           {/* Session Logs */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold font-mono tracking-tight flex items-center gap-2">
+          <div className="space-y-5">
+            <h2 className="flex items-center gap-2 font-mono text-lg font-bold tracking-tight">
               <Clock className="h-5 w-5 text-primary" /> SESSION_LOGS
             </h2>
             <Card className="border-border/50 bg-card/40">
               <CardContent className="p-0">
                 {isLoadingSessions ? (
-                  <div className="p-4 space-y-3">
-                    <Skeleton className="h-12 w-full bg-secondary/40" />
-                    <Skeleton className="h-12 w-full bg-secondary/40" />
+                  <div className="space-y-3 p-4">
+                    <Skeleton className="h-14 w-full bg-secondary/40" />
+                    <Skeleton className="h-14 w-full bg-secondary/40" />
+                    <Skeleton className="h-14 w-full bg-secondary/40" />
                   </div>
                 ) : !sessions || sessions.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground font-mono text-xs space-y-2">
-                    <Activity className="h-8 w-8 mx-auto opacity-30" />
+                  <div className="space-y-2 p-10 text-center font-mono text-xs text-muted-foreground">
+                    <Activity className="mx-auto h-8 w-8 opacity-30" />
                     <p>NO_SESSIONS_FOUND</p>
                     <p className="text-[10px] opacity-60">Click any role card to begin</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border/40">
                     {sessions.map((session) => (
-                      <div key={session.id} className="p-4 flex items-center justify-between hover:bg-secondary/20 transition-colors">
-                        <div className="min-w-0 mr-2">
-                          <p className="font-medium text-sm truncate">{session.roleTitle}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                            {session.status.toUpperCase()}
-                          </p>
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() =>
+                          setLocation(
+                            session.status === "evaluated"
+                              ? `/results/${session.id}`
+                              : `/interview/${session.id}`
+                          )
+                        }
+                        className="group flex w-full items-center justify-between gap-2 p-4 text-left transition-colors hover:bg-secondary/20"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{session.roleTitle}</p>
+                          <span className={`mt-1.5 inline-block rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${statusTone(session.status)}`}>
+                            {session.status.replace("_", " ")}
+                          </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="font-mono text-xs shrink-0 h-7 px-2"
-                          onClick={() =>
-                            setLocation(
-                              session.status === "evaluated"
-                                ? `/results/${session.id}`
-                                : `/interview/${session.id}`
-                            )
-                          }
-                        >
+                        <div className="flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground transition-colors group-hover:text-primary">
                           {session.status === "evaluated" ? "RESULTS" : "RESUME"}
-                        </Button>
-                      </div>
+                          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -310,6 +224,8 @@ export default function Dashboard() {
 
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
