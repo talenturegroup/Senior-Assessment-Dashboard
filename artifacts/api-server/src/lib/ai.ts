@@ -1,8 +1,16 @@
 import OpenAI from "openai";
 import { logger } from "./logger";
 
+// Prefer the Replit AI Integrations proxy (no user API key required); fall back
+// to a direct OpenAI key if one is configured. When neither is present the SDK
+// calls fail and every helper below degrades to its deterministic fallback.
+const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY ?? "missing",
+  apiKey:
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ??
+    process.env.OPENAI_API_KEY ??
+    "missing",
+  ...(openaiBaseUrl ? { baseURL: openaiBaseUrl } : {}),
 });
 
 export type QuestionType =
@@ -458,15 +466,209 @@ ${cvText.slice(0, 8000)}`;
   }
 }
 
+interface RoleQuestionSet {
+  technical: [string, string, string];
+  coding: [string, string];
+  systemDesign: string;
+}
+
+// Two role-agnostic soft-skill prompts asked of every candidate (one to open the
+// interview, one mid-way). Soft skills are not role-specific, so these are shared.
+const SOFT_SKILL_QUESTIONS: [string, string] = [
+  "To start, tell me about a time you had a disagreement with a teammate on an important technical decision. How did you work through it and what was the outcome?",
+  "How do you communicate complex technical trade-offs to non-technical stakeholders? Walk me through a specific example.",
+];
+
+// Role-specific deterministic question banks. These are used when the AI question
+// generator is unavailable, so each role still gets a tailored interview instead
+// of one shared set. Keys must match the role titles in the dashboard's roles.ts.
+const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
+  "Cybersecurity Analyst": {
+    technical: [
+      "Walk me through how you would investigate and respond to a suspected data exfiltration alert from your SIEM. Which signals do you prioritize and how do you contain it?",
+      "How do you run vulnerability management at scale — from discovery and prioritization (CVSS, exploitability, asset criticality) to remediation tracking across hundreds of assets?",
+      "Explain the difference between signature-based detection and behavioral/anomaly detection. When do you invest in each, and how do you keep false positives manageable?",
+    ],
+    coding: [
+      "You need to scan a large volume of authentication logs to flag brute-force attempts. Describe the data structures and approach you'd use to detect more than 10 failed logins per account within a 5-minute window.",
+      "Describe how you'd write a tool to enrich indicators of compromise (IPs, domains, hashes) against several threat-intel feeds efficiently, handling rate limits and caching.",
+    ],
+    systemDesign:
+      "Design a centralized logging and threat-detection pipeline for a mid-size company: log collection, normalization, correlation, alerting, and the analyst workflow. What are the key trade-offs?",
+  },
+  "Senior Software Engineer": {
+    technical: [
+      "Describe the most complex system you've architected. What were the key design decisions and trade-offs, and what would you change in hindsight?",
+      "How do you approach refactoring a large legacy codebase that has little test coverage while continuing to ship features safely?",
+      "How do you reason about consistency, availability, and partition tolerance when designing a distributed service? Give a concrete example.",
+    ],
+    coding: [
+      "Given an array of integers, walk me through finding the two numbers that add up to a target value. Compare a brute-force approach with an optimal one and discuss time and space complexity.",
+      "Describe how you'd implement an LRU cache with O(1) get and put. What data structures make that possible?",
+    ],
+    systemDesign:
+      "Design a URL shortener that handles 10M+ redirects per day. Cover the data model, ID generation, caching, and how you'd scale reads.",
+  },
+  "DevOps / Site Reliability Engineer": {
+    technical: [
+      "Walk me through how you'd design a CI/CD pipeline for a microservices system. How do you handle testing, progressive delivery, and rollbacks?",
+      "How do you approach observability — metrics, logs, and traces — and how do you define meaningful SLOs and error budgets?",
+      "A production service is degraded with rising latency. Walk me through your incident response and how you'd isolate the root cause.",
+    ],
+    coding: [
+      "Describe how you'd write a tool to safely perform a rolling restart of pods across a Kubernetes cluster while respecting readiness checks and disruption budgets.",
+      "How would you implement an alert that predicts when a disk will run out of space within N hours based on its recent growth rate?",
+    ],
+    systemDesign:
+      "Design a highly available, multi-region deployment for a critical API. Cover traffic routing, failover, data replication, and how you'd test resilience.",
+  },
+  "Data Scientist / ML Engineer": {
+    technical: [
+      "Walk me through how you'd frame, build, and validate a model to predict customer churn. How do you select features and avoid data leakage?",
+      "How do you detect and handle data drift and model degradation once a model is serving production traffic?",
+      "Explain how you'd design an A/B experiment to measure the real-world impact of a new model, including how you'd handle confounders and statistical significance.",
+    ],
+    coding: [
+      "Given a dataset too large to fit in memory, how would you compute per-group aggregations efficiently? Describe your approach and the tools you'd reach for.",
+      "Describe how you'd build a feature pipeline that produces identical transformations at training and serving time to avoid train/serve skew.",
+    ],
+    systemDesign:
+      "Design an end-to-end ML platform: data ingestion, a feature store, training, a model registry, deployment, and monitoring. What are the key trade-offs?",
+  },
+  "Cloud Architect": {
+    technical: [
+      "How do you design a secure, well-architected multi-account cloud environment? Cover networking, IAM boundaries, and guardrails.",
+      "Explain your approach to infrastructure as code with Terraform at scale — module design, state management, and handling drift.",
+      "How do you optimize cloud cost without sacrificing reliability? Give concrete levers you've actually used.",
+    ],
+    coding: [
+      "Describe how you'd write Terraform (or pseudo-code) to provision an autoscaling, load-balanced web tier across multiple availability zones.",
+      "How would you script the safe detection and cleanup of unused or orphaned cloud resources across many accounts?",
+    ],
+    systemDesign:
+      "Design a globally distributed, fault-tolerant architecture for a SaaS product with strict uptime requirements. Cover regions, data residency, and failover.",
+  },
+  "Product Manager (Technical)": {
+    technical: [
+      "How do you translate an ambiguous business goal into a technical roadmap? Walk me through how you scope an MVP and sequence delivery.",
+      "Describe how you work with engineering on technical trade-offs — for example build vs. buy, or taking on tech debt to hit a deadline.",
+      "How do you define and instrument success metrics for a feature, and how do you decide whether to iterate on it or kill it?",
+    ],
+    coding: [
+      "You're given raw funnel event data (view → signup → purchase). Describe how you'd structure an analysis to find the biggest drop-off and quantify the opportunity.",
+      "Walk me through how you'd specify an API contract for a new feature so that engineering and external partners can build against it unambiguously.",
+    ],
+    systemDesign:
+      "A key feature is being adopted far faster than expected and is starting to strain the system. Walk me through how you'd prioritize, communicate the trade-offs, and plan the scaling work with engineering.",
+  },
+  "Full-Stack Developer": {
+    technical: [
+      "Walk me through how you'd build a feature end-to-end — from database schema to API to UI. Where do you put business logic and why?",
+      "How do you handle authentication and authorization across the stack securely — sessions vs. tokens, protecting APIs, and the frontend?",
+      "How do you approach performance across the whole stack — database queries, API latency, and frontend rendering?",
+    ],
+    coding: [
+      "Describe how you'd implement optimistic UI updates with proper rollback when the server mutation fails.",
+      "Given a slow page that makes many sequential API calls, how would you diagnose it and restructure it to load efficiently?",
+    ],
+    systemDesign:
+      "Design a real-time collaborative to-do app where multiple users see live updates. Cover the data model, the sync strategy, and conflict handling.",
+  },
+  "Backend Engineer (Node.js / Python)": {
+    technical: [
+      "How do you design clean, versioned REST or RPC APIs? Cover error handling, pagination, and backward compatibility.",
+      "Explain how you'd handle a high-throughput write workload — connection pooling, batching, queues, and back-pressure.",
+      "How do you ensure data consistency across services — transactions, idempotency, and handling partial failures?",
+    ],
+    coding: [
+      "Describe how you'd implement a rate limiter for an API. Which algorithm and data structures would you use, and what edge cases matter?",
+      "Given a list of jobs with dependencies, how would you determine a valid execution order? Discuss the algorithm and its complexity.",
+    ],
+    systemDesign:
+      "Design a scalable background job processing system: queueing, workers, retries, dead-letter handling, and observability.",
+  },
+  "Frontend Engineer (React)": {
+    technical: [
+      "How do you diagnose and fix performance problems in a large React app — unnecessary re-renders, bundle size, and slow interactions?",
+      "Explain your approach to component architecture and state management as an app grows. When do you reach for context, a store, or server-state caching?",
+      "How do you build accessible and responsive components, and how do you actually verify accessibility?",
+    ],
+    coding: [
+      "Describe how you'd implement a debounced, cancelable search-as-you-type input that avoids race conditions between responses.",
+      "How would you build a virtualized list to render tens of thousands of rows smoothly? What's the core idea behind it?",
+    ],
+    systemDesign:
+      "Design the frontend architecture for a large dashboard product: routing, data fetching and caching, code splitting, and a shared component system.",
+  },
+  "AI / LLM Engineer": {
+    technical: [
+      "Walk me through how you'd design a RAG pipeline: chunking, embeddings, retrieval, and how you'd evaluate and improve answer quality.",
+      "How do you reduce hallucinations and measure the quality of an LLM feature in production? What evals and guardrails do you put in place?",
+      "Explain the trade-offs between prompt engineering, fine-tuning, and retrieval when adapting a model to a specific domain.",
+    ],
+    coding: [
+      "Describe how you'd implement chunking and retrieval over a large document corpus efficiently, including overlap handling and metadata filtering.",
+      "How would you build a robust LLM call wrapper with retries, timeouts, streaming, and structured-output validation?",
+    ],
+    systemDesign:
+      "Design a production LLM application platform: prompt and version management, caching, evaluation, monitoring, and cost control.",
+  },
+  "Mobile Developer (iOS/Android)": {
+    technical: [
+      "How do you architect a mobile app for testability and maintainability (e.g. MVVM or clean architecture)? Walk me through your layering.",
+      "How do you handle offline-first behavior and data sync between the device and the backend, including conflict resolution?",
+      "How do you diagnose and improve mobile performance — startup time, UI jank, memory, and battery?",
+    ],
+    coding: [
+      "Describe how you'd implement smooth infinite scrolling with image loading and caching in a list, while avoiding memory spikes.",
+      "How would you implement a reliable retry/queue mechanism for actions a user takes while the device is offline?",
+    ],
+    systemDesign:
+      "Design the architecture for a mobile app with real-time messaging and push notifications. Cover sync, offline support, and the backend contract.",
+  },
+  "Database Administrator": {
+    technical: [
+      "Walk me through how you diagnose and optimize a slow query — reading the execution plan, indexing strategy, and the trade-offs involved.",
+      "How do you design a schema for both integrity and performance? When do you denormalize, and how do you manage the consequences?",
+      "Explain your approach to high availability and disaster recovery — replication, backups, RPO/RTO targets, and failover testing.",
+    ],
+    coding: [
+      "Given a reporting query that joins several large tables and runs slowly, describe how you'd rewrite or index it and how you'd verify the improvement.",
+      "How would you perform a safe, online schema migration on a very large table without significant downtime?",
+    ],
+    systemDesign:
+      "Design a database architecture for a read-heavy application with global users: replication, caching, sharding, and consistency trade-offs.",
+  },
+};
+
+function getDefaultQuestionSet(role: string): RoleQuestionSet {
+  return {
+    technical: [
+      `Describe the most complex system you've designed as a ${role}. What were the key technical decisions and trade-offs?`,
+      `How do you approach performance optimization in your ${role} work? Give a concrete example with measurable impact.`,
+      `What strategies do you use to ensure code quality and reliability in production systems as a ${role}?`,
+    ],
+    coding: [
+      `Given an array of integers, walk me through how you would find the two numbers that add up to a target value. Discuss time and space complexity.`,
+      `Describe how you would implement a rate limiter for an API. What data structures and edge cases would you consider?`,
+    ],
+    systemDesign: `Walk me through how you would design a scalable, fault-tolerant system for 10M+ daily active users.`,
+  };
+}
+
 function getFallbackQuestions(role: string): GeneratedQuestion[] {
-  return [
-    { questionText: `To start, tell me about a time you had a disagreement with a teammate on a technical decision. How did you resolve it?`, questionType: "soft_skill", orderIndex: 0 },
-    { questionText: `Describe the most complex system you've designed as a ${role}. What were the key technical decisions and trade-offs?`, questionType: "technical", orderIndex: 1 },
-    { questionText: `Given an array of integers, walk me through how you would find the two numbers that add up to a target value. Discuss time and space complexity.`, questionType: "coding", orderIndex: 2 },
-    { questionText: `How do you approach performance optimization in your ${role} work? Give a concrete example with measurable impact.`, questionType: "technical", orderIndex: 3 },
-    { questionText: `Walk me through how you would design a scalable, fault-tolerant system for 10M+ daily active users.`, questionType: "system_design", orderIndex: 4 },
-    { questionText: `Describe how you would implement a rate limiter for an API. What data structures and edge cases would you consider?`, questionType: "coding", orderIndex: 5 },
-    { questionText: `How do you communicate complex technical concepts to non-technical stakeholders? Give an example.`, questionType: "soft_skill", orderIndex: 6 },
-    { questionText: `What strategies do you use for ensuring code quality and reliability in production systems?`, questionType: "technical", orderIndex: 7 },
+  const set = ROLE_QUESTION_BANK[role] ?? getDefaultQuestionSet(role);
+  // Same 2 soft / 3 technical / 2 coding / 1 system_design mix the AI prompt asks
+  // for, ordered to open with a soft-skill question to ease the candidate in.
+  const ordered: Array<{ questionText: string; questionType: QuestionType }> = [
+    { questionText: SOFT_SKILL_QUESTIONS[0], questionType: "soft_skill" },
+    { questionText: set.technical[0], questionType: "technical" },
+    { questionText: set.coding[0], questionType: "coding" },
+    { questionText: set.technical[1], questionType: "technical" },
+    { questionText: set.systemDesign, questionType: "system_design" },
+    { questionText: set.coding[1], questionType: "coding" },
+    { questionText: SOFT_SKILL_QUESTIONS[1], questionType: "soft_skill" },
+    { questionText: set.technical[2], questionType: "technical" },
   ];
+  return ordered.map((q, i) => ({ ...q, orderIndex: i }));
 }

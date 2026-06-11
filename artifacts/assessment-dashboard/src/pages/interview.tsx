@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useMediaStream } from "../hooks/use-media-stream";
 import { speak, cancelSpeech, speechSupported } from "../lib/speech";
-import { Mic, SquareSquare, Send, Bot, AlertTriangle, Volume2, VolumeX, Play } from "lucide-react";
+import { Mic, SquareSquare, Send, Bot, AlertTriangle, Volume2, VolumeX, Play, LogOut } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 const QUESTION_TYPE_LABEL: Record<string, string> = {
@@ -115,6 +115,22 @@ export default function Interview() {
     setStage("interview");
   };
 
+  // Let candidates leave the assessment and return to the dashboard. Once the
+  // interview has started, confirm first since leaving abandons this attempt.
+  const exitToDashboard = () => {
+    if (
+      stage === "interview" &&
+      !window.confirm(
+        "Leave the interview and return to the dashboard? Your progress on this attempt will be lost."
+      )
+    ) {
+      return;
+    }
+    cancelSpeech();
+    setIsSpeaking(false);
+    setLocation("/dashboard");
+  };
+
   const handleNext = () => {
     if (!currentQuestion) return;
     cancelSpeech();
@@ -178,9 +194,14 @@ export default function Interview() {
                 </div>
               </div>
             </div>
-            <Button variant="ghost" size="sm" className="font-mono text-xs" onClick={toggleMute}>
-              {muted ? <><VolumeX className="h-4 w-4 mr-1" /> UNMUTE</> : <><Volume2 className="h-4 w-4 mr-1" /> MUTE</>}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" className="font-mono text-xs text-muted-foreground hover:text-foreground" onClick={exitToDashboard}>
+                <LogOut className="h-4 w-4 mr-1" /> EXIT
+              </Button>
+              <Button variant="ghost" size="sm" className="font-mono text-xs" onClick={toggleMute}>
+                {muted ? <><VolumeX className="h-4 w-4 mr-1" /> UNMUTE</> : <><Volume2 className="h-4 w-4 mr-1" /> MUTE</>}
+              </Button>
+            </div>
           </div>
 
           <h1 className="text-2xl md:text-3xl font-medium leading-relaxed mb-4">
@@ -223,6 +244,9 @@ export default function Interview() {
           LIVE_SESSION // {session.roleTitle.toUpperCase()}
         </div>
         <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" className="font-mono text-xs h-7 text-muted-foreground hover:text-foreground" onClick={exitToDashboard}>
+            <LogOut className="h-4 w-4 mr-1" /> EXIT
+          </Button>
           <Button variant="ghost" size="sm" className="font-mono text-xs h-7" onClick={toggleMute}>
             {muted ? <><VolumeX className="h-4 w-4 mr-1" /> MUTED</> : <><Volume2 className="h-4 w-4 mr-1" /> VOICE_ON</>}
           </Button>
