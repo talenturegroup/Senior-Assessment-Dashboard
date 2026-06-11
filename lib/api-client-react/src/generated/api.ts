@@ -20,6 +20,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminAccess,
+  AdminSessionDetail,
+  AdminSessionSummary,
   Answer,
   AnswerInput,
   CVUpload,
@@ -30,6 +33,7 @@ import type {
   Evaluation,
   HealthStatus,
   Question,
+  ReviewStatusUpdate,
   Role,
   Session,
   SessionInput,
@@ -1315,4 +1319,307 @@ export function useGetRecentSessions<TData = Awaited<ReturnType<typeof getRecent
 
 
 
+
+export const getGetAdminAccessUrl = () => {
+
+
+
+
+  return `/api/admin/access`
+}
+
+/**
+ * @summary Whether the signed-in user has admin access
+ */
+export const getAdminAccess = async ( options?: RequestInit): Promise<AdminAccess> => {
+
+  return customFetch<AdminAccess>(getGetAdminAccessUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminAccessQueryKey = () => {
+    return [
+    `/api/admin/access`
+    ] as const;
+    }
+
+
+export const getGetAdminAccessQueryOptions = <TData = Awaited<ReturnType<typeof getAdminAccess>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminAccessQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminAccess>>> = ({ signal }) => getAdminAccess({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminAccess>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminAccessQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminAccess>>>
+export type GetAdminAccessQueryError = ErrorType<void>
+
+
+/**
+ * @summary Whether the signed-in user has admin access
+ */
+
+export function useGetAdminAccess<TData = Awaited<ReturnType<typeof getAdminAccess>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminAccessQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListAdminSessionsUrl = () => {
+
+
+
+
+  return `/api/admin/sessions`
+}
+
+/**
+ * @summary List all interview sessions across every candidate
+ */
+export const listAdminSessions = async ( options?: RequestInit): Promise<AdminSessionSummary[]> => {
+
+  return customFetch<AdminSessionSummary[]>(getListAdminSessionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminSessionsQueryKey = () => {
+    return [
+    `/api/admin/sessions`
+    ] as const;
+    }
+
+
+export const getListAdminSessionsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminSessions>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminSessions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminSessionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminSessions>>> = ({ signal }) => listAdminSessions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminSessions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminSessions>>>
+export type ListAdminSessionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List all interview sessions across every candidate
+ */
+
+export function useListAdminSessions<TData = Awaited<ReturnType<typeof listAdminSessions>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminSessions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminSessionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAdminSessionDetailUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/sessions/${id}`
+}
+
+/**
+ * @summary Full detail (candidate, questions, answers, evaluation) for one session
+ */
+export const getAdminSessionDetail = async (id: number, options?: RequestInit): Promise<AdminSessionDetail> => {
+
+  return customFetch<AdminSessionDetail>(getGetAdminSessionDetailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminSessionDetailQueryKey = (id: number,) => {
+    return [
+    `/api/admin/sessions/${id}`
+    ] as const;
+    }
+
+
+export const getGetAdminSessionDetailQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSessionDetail>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSessionDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminSessionDetailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminSessionDetail>>> = ({ signal }) => getAdminSessionDetail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminSessionDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminSessionDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminSessionDetail>>>
+export type GetAdminSessionDetailQueryError = ErrorType<void>
+
+
+/**
+ * @summary Full detail (candidate, questions, answers, evaluation) for one session
+ */
+
+export function useGetAdminSessionDetail<TData = Awaited<ReturnType<typeof getAdminSessionDetail>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSessionDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminSessionDetailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSetAdminReviewStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/sessions/${id}/review`
+}
+
+/**
+ * @summary Set the human review status on a session's evaluation
+ */
+export const setAdminReviewStatus = async (id: number,
+    reviewStatusUpdate: ReviewStatusUpdate, options?: RequestInit): Promise<Evaluation> => {
+
+  return customFetch<Evaluation>(getSetAdminReviewStatusUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      reviewStatusUpdate,)
+  }
+);}
+
+
+
+
+export const getSetAdminReviewStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAdminReviewStatus>>, TError,{id: number;data: BodyType<ReviewStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setAdminReviewStatus>>, TError,{id: number;data: BodyType<ReviewStatusUpdate>}, TContext> => {
+
+const mutationKey = ['setAdminReviewStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setAdminReviewStatus>>, {id: number;data: BodyType<ReviewStatusUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setAdminReviewStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetAdminReviewStatusMutationResult = NonNullable<Awaited<ReturnType<typeof setAdminReviewStatus>>>
+    export type SetAdminReviewStatusMutationBody = BodyType<ReviewStatusUpdate>
+    export type SetAdminReviewStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Set the human review status on a session's evaluation
+ */
+export const useSetAdminReviewStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAdminReviewStatus>>, TError,{id: number;data: BodyType<ReviewStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setAdminReviewStatus>>,
+        TError,
+        {id: number;data: BodyType<ReviewStatusUpdate>},
+        TContext
+      > => {
+      return useMutation(getSetAdminReviewStatusMutationOptions(options));
+    }
 

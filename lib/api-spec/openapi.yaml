@@ -19,6 +19,8 @@ tags:
     description: Job roles
   - name: dashboard
     description: Dashboard summary
+  - name: admin
+    description: Recruiter/admin review of all candidates
 
 paths:
   /healthz:
@@ -344,6 +346,96 @@ paths:
                 items:
                   $ref: "#/components/schemas/SessionSummary"
 
+  /admin/access:
+    get:
+      operationId: getAdminAccess
+      tags: [admin]
+      summary: Whether the signed-in user has admin access
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccess"
+        "401":
+          description: Unauthorized
+
+  /admin/sessions:
+    get:
+      operationId: listAdminSessions
+      tags: [admin]
+      summary: List all interview sessions across every candidate
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminSessionSummary"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/sessions/{id}:
+    get:
+      operationId: getAdminSessionDetail
+      tags: [admin]
+      summary: Full detail (candidate, questions, answers, evaluation) for one session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionDetail"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /admin/sessions/{id}/review:
+    patch:
+      operationId: setAdminReviewStatus
+      tags: [admin]
+      summary: Set the human review status on a session's evaluation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewStatusUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evaluation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
 components:
   schemas:
     HealthStatus:
@@ -624,3 +716,68 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+
+    AdminAccess:
+      type: object
+      required: [isAdmin]
+      properties:
+        isAdmin:
+          type: boolean
+
+    AdminSessionSummary:
+      type: object
+      required: [id, candidateId, candidateName, candidateEmail, roleTitle, status, overallScore, rating, humanReviewStatus, answerCount, createdAt, completedAt]
+      properties:
+        id:
+          type: integer
+        candidateId:
+          type: integer
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+        roleTitle:
+          type: string
+        status:
+          type: string
+        overallScore:
+          type: ["integer", "null"]
+        rating:
+          type: ["string", "null"]
+        humanReviewStatus:
+          type: ["string", "null"]
+        answerCount:
+          type: integer
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+
+    AdminSessionDetail:
+      type: object
+      required: [session, candidate, questions, answers, evaluation]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        candidate:
+          $ref: "#/components/schemas/Candidate"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Answer"
+        evaluation:
+          oneOf:
+            - $ref: "#/components/schemas/Evaluation"
+            - type: "null"
+
+    ReviewStatusUpdate:
+      type: object
+      required: [humanReviewStatus]
+      properties:
+        humanReviewStatus:
+          type: string
+          enum: [pending, reviewed]

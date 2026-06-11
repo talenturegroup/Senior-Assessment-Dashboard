@@ -1,13 +1,15 @@
 import { Link, useLocation } from "wouter";
 import { Show, useClerk } from "@clerk/react";
-import { BrainCircuit, LogOut } from "lucide-react";
+import { BrainCircuit, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
+import { useIsAdmin } from "../lib/use-admin";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function Navbar() {
   const [, setLocation] = useLocation();
   const { signOut } = useClerk();
+  const { isAdmin } = useIsAdmin();
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -24,6 +26,15 @@ export function Navbar() {
             <Link href="/profile" className="text-sm text-muted-foreground hover:text-primary transition-colors">
               Profile
             </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1 font-medium"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Recruiter
+              </Link>
+            )}
             <Button
               variant="ghost"
               size="sm"

@@ -214,6 +214,49 @@ export interface SessionSummary {
   createdAt: string;
 }
 
+export interface AdminAccess {
+  isAdmin: boolean;
+}
+
+export interface AdminSessionSummary {
+  id: number;
+  candidateId: number;
+  candidateName: string;
+  candidateEmail: string;
+  roleTitle: string;
+  status: string;
+  /** @nullable */
+  overallScore: number | null;
+  /** @nullable */
+  rating: string | null;
+  /** @nullable */
+  humanReviewStatus: string | null;
+  answerCount: number;
+  createdAt: string;
+  /** @nullable */
+  completedAt: string | null;
+}
+
+export interface AdminSessionDetail {
+  session: Session;
+  candidate: Candidate;
+  questions: Question[];
+  answers: Answer[];
+  evaluation: Evaluation | null;
+}
+
+export type ReviewStatusUpdateHumanReviewStatus = typeof ReviewStatusUpdateHumanReviewStatus[keyof typeof ReviewStatusUpdateHumanReviewStatus];
+
+
+export const ReviewStatusUpdateHumanReviewStatus = {
+  pending: 'pending',
+  reviewed: 'reviewed',
+} as const;
+
+export interface ReviewStatusUpdate {
+  humanReviewStatus: ReviewStatusUpdateHumanReviewStatus;
+}
+
 export type CreateSession409 = {
   error: string;
   message: string;

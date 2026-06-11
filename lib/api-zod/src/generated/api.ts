@@ -350,3 +350,143 @@ export const GetRecentSessionsResponseItem = zod.object({
 export const GetRecentSessionsResponse = zod.array(GetRecentSessionsResponseItem)
 
 
+/**
+ * @summary Whether the signed-in user has admin access
+ */
+export const GetAdminAccessResponse = zod.object({
+  "isAdmin": zod.boolean()
+})
+
+
+/**
+ * @summary List all interview sessions across every candidate
+ */
+export const ListAdminSessionsResponseItem = zod.object({
+  "id": zod.number(),
+  "candidateId": zod.number(),
+  "candidateName": zod.string(),
+  "candidateEmail": zod.string(),
+  "roleTitle": zod.string(),
+  "status": zod.string(),
+  "overallScore": zod.number().nullable(),
+  "rating": zod.string().nullable(),
+  "humanReviewStatus": zod.string().nullable(),
+  "answerCount": zod.number(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullable()
+})
+export const ListAdminSessionsResponse = zod.array(ListAdminSessionsResponseItem)
+
+
+/**
+ * @summary Full detail (candidate, questions, answers, evaluation) for one session
+ */
+export const GetAdminSessionDetailParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAdminSessionDetailResponse = zod.object({
+  "session": zod.object({
+  "id": zod.number(),
+  "candidateId": zod.number(),
+  "roleTitle": zod.string(),
+  "jobDescription": zod.string().nullish(),
+  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated']),
+  "questionsGenerated": zod.boolean().optional(),
+  "startedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+}),
+  "candidate": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "yearsOfExperience": zod.number(),
+  "skills": zod.array(zod.string()),
+  "linkedinUrl": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "cvText": zod.string().nullish(),
+  "cvFileName": zod.string().nullish(),
+  "cvParsed": zod.union([zod.object({
+  "summary": zod.string().nullable(),
+  "name": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "sections": zod.array(zod.object({
+  "heading": zod.string(),
+  "content": zod.string()
+}))
+}),zod.null()]).optional(),
+  "profileComplete": zod.boolean(),
+  "createdAt": zod.string()
+}),
+  "questions": zod.array(zod.object({
+  "id": zod.number(),
+  "sessionId": zod.number(),
+  "questionText": zod.string(),
+  "questionType": zod.enum(['technical', 'system_design', 'behavioral', 'coding', 'soft_skill']),
+  "orderIndex": zod.number()
+})),
+  "answers": zod.array(zod.object({
+  "id": zod.number(),
+  "sessionId": zod.number(),
+  "questionId": zod.number(),
+  "transcript": zod.string(),
+  "score": zod.number(),
+  "feedback": zod.string(),
+  "strengths": zod.string().nullish(),
+  "weaknesses": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "evaluation": zod.union([zod.object({
+  "id": zod.number(),
+  "sessionId": zod.number(),
+  "overallScore": zod.number(),
+  "roleFitScore": zod.number(),
+  "rating": zod.enum(['strong_hire', 'hire', 'no_hire']),
+  "technicalScore": zod.number(),
+  "communicationScore": zod.number(),
+  "domainScore": zod.number(),
+  "strengths": zod.string(),
+  "weaknesses": zod.string(),
+  "suggestions": zod.string(),
+  "readyForHiring": zod.boolean(),
+  "summary": zod.string().nullish(),
+  "humanReviewStatus": zod.enum(['pending', 'reviewed']),
+  "createdAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Set the human review status on a session's evaluation
+ */
+export const SetAdminReviewStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetAdminReviewStatusBody = zod.object({
+  "humanReviewStatus": zod.enum(['pending', 'reviewed'])
+})
+
+export const SetAdminReviewStatusResponse = zod.object({
+  "id": zod.number(),
+  "sessionId": zod.number(),
+  "overallScore": zod.number(),
+  "roleFitScore": zod.number(),
+  "rating": zod.enum(['strong_hire', 'hire', 'no_hire']),
+  "technicalScore": zod.number(),
+  "communicationScore": zod.number(),
+  "domainScore": zod.number(),
+  "strengths": zod.string(),
+  "weaknesses": zod.string(),
+  "suggestions": zod.string(),
+  "readyForHiring": zod.boolean(),
+  "summary": zod.string().nullish(),
+  "humanReviewStatus": zod.enum(['pending', 'reviewed']),
+  "createdAt": zod.string()
+})
+
+

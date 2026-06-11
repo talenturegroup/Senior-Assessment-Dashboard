@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminAccess';
+export * from './adminSessionDetail';
+export * from './adminSessionSummary';
 export * from './answer';
 export * from './answerInput';
 export * from './candidate';
@@ -21,6 +24,8 @@ export * from './evaluationRating';
 export * from './healthStatus';
 export * from './question';
 export * from './questionQuestionType';
+export * from './reviewStatusUpdate';
+export * from './reviewStatusUpdateHumanReviewStatus';
 export * from './role';
 export * from './session';
 export * from './sessionInput';

@@ -13,6 +13,7 @@ import Profile from "./pages/profile";
 import Dashboard from "./pages/dashboard";
 import Interview from "./pages/interview";
 import Results from "./pages/results";
+import Admin from "./pages/admin";
 
 const queryClient = new QueryClient();
 
@@ -196,6 +197,11 @@ function ClerkProviderWithRoutes() {
             <Route path="/results/:sessionId">
               <AuthedRoute>
                 <Results />
+              </AuthedRoute>
+            </Route>
+            <Route path="/admin">
+              <AuthedRoute>
+                <Admin />
               </AuthedRoute>
             </Route>
             <Route component={NotFound} />
