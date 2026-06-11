@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
 import {
   db,
   sessionsTable,
@@ -16,6 +16,8 @@ import {
   SetAdminReviewStatusParams,
   SetAdminReviewStatusBody,
   SetAdminReviewStatusResponse,
+  DeleteAdminCandidateParams,
+  DeleteAdminCandidateResponse,
 } from "@workspace/api-zod";
 import { serializeDates, serializeDatesArray } from "../lib/serialize";
 import { requireAuth, attachCandidate, requireAdmin, isAdminEmail } from "../lib/auth";
@@ -164,6 +166,68 @@ router.patch(
     }
 
     res.json(SetAdminReviewStatusResponse.parse(serializeDates(evaluation)));
+  },
+);
+
+// Delete a candidate together with every session, question, answer, and
+// evaluation that belongs to them. The schema uses plain integer columns (no
+// FK cascade), so we remove the dependent rows explicitly inside a transaction.
+router.delete(
+  "/admin/candidates/:id",
+  requireAuth,
+  attachCandidate,
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const params = DeleteAdminCandidateParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [candidate] = await db
+      .select({ id: candidatesTable.id })
+      .from(candidatesTable)
+      .where(eq(candidatesTable.id, params.data.id));
+
+    if (!candidate) {
+      res.status(404).json({ error: "Candidate not found" });
+      return;
+    }
+
+    // Do all discovery and deletion inside one transaction so a session
+    // created concurrently (between discovery and delete) cannot be orphaned:
+    // children are deleted via subqueries evaluated at delete time, then the
+    // session rows themselves, then the candidate.
+    const deletedSessions = await db.transaction(async (tx) => {
+      const sessionIdsFor = () =>
+        tx
+          .select({ id: sessionsTable.id })
+          .from(sessionsTable)
+          .where(eq(sessionsTable.candidateId, candidate.id));
+
+      await tx.delete(answersTable).where(inArray(answersTable.sessionId, sessionIdsFor()));
+      await tx.delete(questionsTable).where(inArray(questionsTable.sessionId, sessionIdsFor()));
+      await tx.delete(evaluationsTable).where(inArray(evaluationsTable.sessionId, sessionIdsFor()));
+      const removed = await tx
+        .delete(sessionsTable)
+        .where(eq(sessionsTable.candidateId, candidate.id))
+        .returning({ id: sessionsTable.id });
+      await tx.delete(candidatesTable).where(eq(candidatesTable.id, candidate.id));
+      return removed.length;
+    });
+
+    req.log.info(
+      { candidateId: candidate.id, deletedSessions },
+      "admin deleted candidate",
+    );
+
+    res.json(
+      DeleteAdminCandidateResponse.parse({
+        success: true,
+        candidateId: candidate.id,
+        deletedSessions,
+      }),
+    );
   },
 );
 

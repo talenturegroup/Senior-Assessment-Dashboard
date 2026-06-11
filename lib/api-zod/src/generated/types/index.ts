@@ -7,6 +7,7 @@
  */
 
 export * from './adminAccess';
+export * from './adminDeleteResult';
 export * from './adminSessionDetail';
 export * from './adminSessionSummary';
 export * from './answer';

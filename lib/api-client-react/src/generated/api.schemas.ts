@@ -257,6 +257,12 @@ export interface ReviewStatusUpdate {
   humanReviewStatus: ReviewStatusUpdateHumanReviewStatus;
 }
 
+export interface AdminDeleteResult {
+  success: boolean;
+  candidateId: number;
+  deletedSessions: number;
+}
+
 export type CreateSession409 = {
   error: string;
   message: string;

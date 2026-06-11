@@ -21,6 +21,7 @@ import type {
 
 import type {
   AdminAccess,
+  AdminDeleteResult,
   AdminSessionDetail,
   AdminSessionSummary,
   Answer,
@@ -1621,5 +1622,75 @@ export const useSetAdminReviewStatus = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSetAdminReviewStatusMutationOptions(options));
+    }
+
+export const getDeleteAdminCandidateUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/candidates/${id}`
+}
+
+/**
+ * @summary Delete a candidate and all of their sessions, answers, and evaluations
+ */
+export const deleteAdminCandidate = async (id: number, options?: RequestInit): Promise<AdminDeleteResult> => {
+
+  return customFetch<AdminDeleteResult>(getDeleteAdminCandidateUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAdminCandidateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminCandidate>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminCandidate>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteAdminCandidate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminCandidate>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAdminCandidate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminCandidateMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminCandidate>>>
+
+    export type DeleteAdminCandidateMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a candidate and all of their sessions, answers, and evaluations
+ */
+export const useDeleteAdminCandidate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminCandidate>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminCandidate>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAdminCandidateMutationOptions(options));
     }
 

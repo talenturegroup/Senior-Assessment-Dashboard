@@ -5,9 +5,11 @@ import {
   useListAdminSessions,
   useGetAdminSessionDetail,
   useSetAdminReviewStatus,
+  useDeleteAdminCandidate,
   getGetAdminSessionDetailQueryKey,
   getListAdminSessionsQueryKey,
 } from "@workspace/api-client-react";
+import type { AdminSessionDetail } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { useIsAdmin } from "../lib/use-admin";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +24,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   ShieldAlert,
@@ -32,6 +45,9 @@ import {
   ClipboardList,
   UserCheck,
   Clock,
+  FileText,
+  Download,
+  Trash2,
 } from "lucide-react";
 
 const QUESTION_TYPE_LABEL: Record<string, string> = {
@@ -65,6 +81,77 @@ function formatDate(iso: string) {
   });
 }
 
+function slugify(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "candidate";
+}
+
+function downloadTextFile(filename: string, contents: string) {
+  const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function buildAssessmentCopy(data: AdminSessionDetail): string {
+  const { candidate, session, questions, answers, evaluation } = data;
+  const lines: string[] = [];
+  lines.push("ASSESSMENT RECORD");
+  lines.push("=================");
+  lines.push(`Candidate: ${candidate.name} <${candidate.email}>`);
+  lines.push(`Role: ${session.roleTitle}`);
+  lines.push(`Status: ${session.status}`);
+  lines.push(`Date: ${formatDate(session.createdAt)}`);
+  lines.push("");
+
+  if (evaluation) {
+    lines.push("EVALUATION");
+    lines.push("----------");
+    lines.push(`Overall: ${evaluation.overallScore}/100  (${evaluation.rating})`);
+    lines.push(`Technical: ${evaluation.technicalScore}  Communication: ${evaluation.communicationScore}  Domain: ${evaluation.domainScore}`);
+    lines.push(`Human review: ${evaluation.humanReviewStatus}`);
+    if (evaluation.summary) lines.push(`Summary: ${evaluation.summary}`);
+    if (evaluation.strengths) lines.push(`Strengths: ${evaluation.strengths}`);
+    if (evaluation.weaknesses) lines.push(`Weaknesses: ${evaluation.weaknesses}`);
+    if (evaluation.suggestions) lines.push(`Suggestions: ${evaluation.suggestions}`);
+    lines.push("");
+  }
+
+  lines.push("RESPONSES");
+  lines.push("---------");
+  answers.forEach((answer, i) => {
+    const q = questions.find((qq) => qq.id === answer.questionId);
+    lines.push(`Q${i + 1} [${q?.questionType ?? "unknown"}] (AI score: ${answer.score}/100)`);
+    if (q) lines.push(q.questionText);
+    lines.push(answer.transcript.trim() ? answer.transcript : "— No answer provided —");
+    lines.push("");
+  });
+
+  return lines.join("\n");
+}
+
+function buildCvCopy(candidate: AdminSessionDetail["candidate"]): string {
+  if (candidate.cvText && candidate.cvText.trim()) return candidate.cvText;
+  const parsed = candidate.cvParsed;
+  if (!parsed) return "";
+  const lines: string[] = [];
+  if (parsed.summary) {
+    lines.push("SUMMARY");
+    lines.push(parsed.summary);
+    lines.push("");
+  }
+  parsed.sections.forEach((s) => {
+    lines.push(s.heading.toUpperCase());
+    lines.push(s.content);
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+
 function AdminSessionDetailDialog({
   sessionId,
   onClose,
@@ -91,8 +178,26 @@ function AdminSessionDetailDialog({
     },
   });
 
+  const deleteMutation = useDeleteAdminCandidate({
+    mutation: {
+      onSuccess: (result) => {
+        queryClient.invalidateQueries({ queryKey: getListAdminSessionsQueryKey() });
+        toast({
+          title: "Candidate deleted",
+          description: `Removed candidate and ${result.deletedSessions} session(s).`,
+        });
+        onClose();
+      },
+      onError: () => {
+        toast({ title: "Failed to delete candidate", variant: "destructive" });
+      },
+    },
+  });
+
   const evaluation = data?.evaluation ?? null;
   const reviewed = evaluation?.humanReviewStatus === "reviewed";
+  const cvCopy = data ? buildCvCopy(data.candidate) : "";
+  const hasCv = !!cvCopy.trim();
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -116,6 +221,89 @@ function AdminSessionDetailDialog({
               <span>•</span>
               <span>{formatDate(data.session.createdAt)}</span>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="font-mono text-xs"
+                onClick={() =>
+                  downloadTextFile(
+                    `${slugify(data.candidate.name)}-${slugify(data.session.roleTitle)}-assessment.txt`,
+                    buildAssessmentCopy(data),
+                  )
+                }
+              >
+                <Download className="h-4 w-4 mr-1" />
+                ASSESSMENT_COPY
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="font-mono text-xs"
+                disabled={!hasCv}
+                onClick={() => downloadTextFile(`${slugify(data.candidate.name)}-cv.txt`, cvCopy)}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                CV_COPY
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="font-mono text-xs ml-auto"
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    DELETE_CANDIDATE
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this candidate?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently removes <span className="font-medium">{data.candidate.name}</span> and
+                      every assessment session, response, and evaluation tied to them. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="font-mono text-xs">CANCEL</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="font-mono text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => deleteMutation.mutate({ id: data.candidate.id })}
+                    >
+                      DELETE
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+
+            <Card className="bg-card/40 border-border">
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="font-mono text-sm flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    CV_ON_FILE
+                  </h3>
+                  {data.candidate.cvFileName && (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {data.candidate.cvFileName}
+                    </span>
+                  )}
+                </div>
+                {hasCv ? (
+                  <pre className="text-xs leading-relaxed font-mono whitespace-pre-wrap text-muted-foreground max-h-64 overflow-y-auto border-t border-border pt-3">
+                    {cvCopy}
+                  </pre>
+                ) : (
+                  <p className="text-sm font-mono text-muted-foreground italic">
+                    No CV has been uploaded by this candidate.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {evaluation ? (
               <Card className="bg-card/40 border-border">

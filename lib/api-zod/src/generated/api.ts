@@ -490,3 +490,17 @@ export const SetAdminReviewStatusResponse = zod.object({
 })
 
 
+/**
+ * @summary Delete a candidate and all of their sessions, answers, and evaluations
+ */
+export const DeleteAdminCandidateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAdminCandidateResponse = zod.object({
+  "success": zod.boolean(),
+  "candidateId": zod.number(),
+  "deletedSessions": zod.number()
+})
+
+
