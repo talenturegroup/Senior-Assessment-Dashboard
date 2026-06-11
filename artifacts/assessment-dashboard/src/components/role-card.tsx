@@ -5,17 +5,15 @@ interface RoleCardProps {
   role: Role;
   onSelect: (title: string) => void;
   disabled?: boolean;
-  attemptsUsed?: number;
-  maxAttempts?: number;
+  completed?: boolean;
 }
 
-export function RoleCard({ role, onSelect, disabled, attemptsUsed = 0, maxAttempts }: RoleCardProps) {
+export function RoleCard({ role, onSelect, disabled, completed = false }: RoleCardProps) {
   const Icon = role.icon;
-  const limitReached = maxAttempts != null && attemptsUsed >= maxAttempts;
   return (
     <button
       type="button"
-      disabled={disabled || limitReached}
+      disabled={disabled || completed}
       onClick={() => onSelect(role.title)}
       className="group relative w-full text-left overflow-hidden rounded-lg border border-border/50 bg-card/40 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:bg-card/70 hover:shadow-[0_0_30px_-8px_hsl(var(--primary)/0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
     >
@@ -43,10 +41,10 @@ export function RoleCard({ role, onSelect, disabled, attemptsUsed = 0, maxAttemp
         {role.desc}
       </p>
 
-      {limitReached ? (
-        <div className="mt-3 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-destructive">
-          <span className="h-1 w-1 rounded-full bg-destructive" />
-          Retake limit reached ({attemptsUsed}/{maxAttempts})
+      {completed ? (
+        <div className="mt-3 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-emerald-400">
+          <span className="h-1 w-1 rounded-full bg-emerald-400" />
+          Assessment completed
         </div>
       ) : (
         <div className="mt-3 flex items-center justify-between">
@@ -54,11 +52,6 @@ export function RoleCard({ role, onSelect, disabled, attemptsUsed = 0, maxAttemp
             <span className="h-1 w-1 rounded-full bg-primary animate-pulse" />
             Initialize assessment
           </div>
-          {maxAttempts != null && attemptsUsed > 0 && (
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {attemptsUsed}/{maxAttempts}
-            </span>
-          )}
         </div>
       )}
     </button>

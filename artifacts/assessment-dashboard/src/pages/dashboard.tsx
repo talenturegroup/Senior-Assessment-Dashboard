@@ -8,7 +8,6 @@ import { RoleCard } from "../components/role-card";
 import { AssessmentSpotlight } from "../components/assessment-spotlight";
 import { ALL_ROLES, ROLE_CATEGORIES, type RoleCategory } from "../lib/roles";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -39,8 +38,6 @@ function statusTone(status: string): string {
   }
 }
 
-const MAX_ATTEMPTS_PER_ROLE = 3;
-
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { candidate, isLoading: isLoadingCandidate } = useCurrentCandidate();
@@ -57,16 +54,15 @@ export default function Dashboard() {
     }
   }, [candidate, setLocation]);
 
-  const attemptsByRole = useMemo(() => {
-    const map = new Map<string, number>();
+  const completedRoles = useMemo(() => {
+    const set = new Set<string>();
     for (const s of sessions ?? []) {
-      const key = s.roleTitle.toLowerCase();
-      map.set(key, (map.get(key) ?? 0) + 1);
+      if (s.status === "evaluated") set.add(s.roleTitle.trim().toLowerCase());
     }
-    return map;
+    return set;
   }, [sessions]);
 
-  const attemptsFor = (roleTitle: string) => attemptsByRole.get(roleTitle.toLowerCase()) ?? 0;
+  const hasCompleted = (roleTitle: string) => completedRoles.has(roleTitle.trim().toLowerCase());
 
   const handleRoleClick = (roleTitle: string) => {
     setActionError(null);
@@ -74,8 +70,8 @@ export default function Dashboard() {
       setLocation("/profile");
       return;
     }
-    if (attemptsFor(roleTitle) >= MAX_ATTEMPTS_PER_ROLE) {
-      setActionError(`You've reached the maximum of ${MAX_ATTEMPTS_PER_ROLE} attempts for "${roleTitle}".`);
+    if (hasCompleted(roleTitle)) {
+      setActionError(`You've already completed the assessment for "${roleTitle}". You can apply for a different role.`);
       return;
     }
     createSession.mutate(
@@ -85,7 +81,7 @@ export default function Dashboard() {
         onError: (err) => {
           const status = (err as { status?: number } | null)?.status;
           if (status === 409) {
-            setActionError(`You've reached the maximum of ${MAX_ATTEMPTS_PER_ROLE} attempts for "${roleTitle}".`);
+            setActionError(`You've already completed the assessment for "${roleTitle}". You can apply for a different role.`);
           } else {
             setActionError("Couldn't start the assessment. Please try again.");
           }
@@ -156,8 +152,6 @@ export default function Dashboard() {
             onResume={(sessionId) => setLocation(`/interview/${sessionId}`)}
             onViewResults={(sessionId) => setLocation(`/results/${sessionId}`)}
             isStarting={createSession.isPending}
-            attemptsUsed={attemptsFor(candidate.role)}
-            maxAttempts={MAX_ATTEMPTS_PER_ROLE}
           />
         )}
 
@@ -224,8 +218,7 @@ export default function Dashboard() {
                   role={role}
                   onSelect={handleRoleClick}
                   disabled={createSession.isPending}
-                  attemptsUsed={attemptsFor(role.title)}
-                  maxAttempts={MAX_ATTEMPTS_PER_ROLE}
+                  completed={hasCompleted(role.title)}
                 />
               ))}
             </div>

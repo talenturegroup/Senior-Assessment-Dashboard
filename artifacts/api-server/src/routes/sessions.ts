@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, count, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db, sessionsTable, questionsTable, answersTable, evaluationsTable, candidatesTable } from "@workspace/db";
 import {
   CreateSessionBody,
@@ -41,22 +41,24 @@ router.post("/sessions", requireAuth, attachCandidate, async (req, res): Promise
     return;
   }
 
-  // Enforce a maximum of 3 attempts per role for each candidate.
-  const MAX_ATTEMPTS_PER_ROLE = 3;
-  const [{ value: attempts }] = await db
-    .select({ value: count() })
+  // A successfully completed (evaluated) assessment locks that role: no retakes.
+  // Candidates may still apply for a different role.
+  const [completed] = await db
+    .select({ id: sessionsTable.id })
     .from(sessionsTable)
     .where(
       and(
         eq(sessionsTable.candidateId, req.candidate!.id),
-        sql`lower(${sessionsTable.roleTitle}) = lower(${parsed.data.roleTitle})`
+        sql`lower(trim(${sessionsTable.roleTitle})) = lower(trim(${parsed.data.roleTitle}))`,
+        eq(sessionsTable.status, "evaluated")
       )
-    );
+    )
+    .limit(1);
 
-  if (attempts >= MAX_ATTEMPTS_PER_ROLE) {
+  if (completed) {
     res.status(409).json({
-      error: "RETAKE_LIMIT_REACHED",
-      message: `You have reached the maximum of ${MAX_ATTEMPTS_PER_ROLE} attempts for "${parsed.data.roleTitle}".`,
+      error: "ROLE_ALREADY_COMPLETED",
+      message: `You have already completed the assessment for "${parsed.data.roleTitle}". You can apply for a different role.`,
     });
     return;
   }

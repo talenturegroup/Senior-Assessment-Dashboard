@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ALL_ROLES } from "../lib/roles";
 import {
-  Video, ArrowRight, RotateCcw, CheckCircle2, PlayCircle, Sparkles, Target,
+  Video, ArrowRight, CheckCircle2, PlayCircle, Sparkles, Target,
 } from "lucide-react";
 
 export interface SpotlightSession {
@@ -18,8 +18,6 @@ interface AssessmentSpotlightProps {
   onResume: (sessionId: number) => void;
   onViewResults: (sessionId: number) => void;
   isStarting?: boolean;
-  attemptsUsed?: number;
-  maxAttempts?: number;
 }
 
 function matchRole(role: string) {
@@ -37,12 +35,9 @@ export function AssessmentSpotlight({
   onResume,
   onViewResults,
   isStarting,
-  attemptsUsed = 0,
-  maxAttempts,
 }: AssessmentSpotlightProps) {
   const role = (appliedRole ?? "").trim();
   if (!role) return null;
-  const limitReached = maxAttempts != null && attemptsUsed >= maxAttempts;
 
   const meta = matchRole(role);
   const Icon = meta?.icon ?? Target;
@@ -78,24 +73,13 @@ export function AssessmentSpotlight({
             {completed && !active && (
               <div className="inline-flex items-center gap-1.5 pt-1 font-mono text-xs text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Assessment completed — view your evaluation
+                Assessment completed — the Arvencor team will reach out
               </div>
             )}
             {active && (
               <div className="inline-flex items-center gap-1.5 pt-1 font-mono text-xs text-amber-400">
                 <PlayCircle className="h-3.5 w-3.5" />
                 Assessment in progress
-              </div>
-            )}
-            {maxAttempts != null && (
-              <div
-                className={`inline-flex items-center gap-1.5 pt-1 font-mono text-xs ${
-                  limitReached ? "text-destructive" : "text-muted-foreground"
-                }`}
-              >
-                {limitReached
-                  ? `Retake limit reached (${attemptsUsed}/${maxAttempts})`
-                  : `Attempts used: ${attemptsUsed}/${maxAttempts}`}
               </div>
             )}
           </div>
@@ -110,22 +94,16 @@ export function AssessmentSpotlight({
             >
               <PlayCircle className="mr-2 h-4 w-4" /> Resume Assessment
             </Button>
-          ) : (
+          ) : completed ? null : (
             <Button
               size="lg"
               className="font-mono shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]"
               onClick={() => onStart(role)}
-              disabled={isStarting || limitReached}
+              disabled={isStarting}
             >
               <Video className="mr-2 h-4 w-4" />
-              {isStarting
-                ? "Starting…"
-                : limitReached
-                  ? "Retake Limit Reached"
-                  : completed
-                    ? "Retake Assessment"
-                    : "Start Video Interview"}
-              {!isStarting && !limitReached && <ArrowRight className="ml-2 h-4 w-4" />}
+              {isStarting ? "Starting…" : "Start Video Interview"}
+              {!isStarting && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           )}
           {completed && (
@@ -135,7 +113,7 @@ export function AssessmentSpotlight({
               className="border-border/70 font-mono"
               onClick={() => onViewResults(completed.id)}
             >
-              <RotateCcw className="mr-2 h-4 w-4" /> View Results
+              <CheckCircle2 className="mr-2 h-4 w-4" /> View Confirmation
             </Button>
           )}
         </div>
