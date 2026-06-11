@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { useGetSession, useGetSessionQuestions, useSubmitAnswer, useEvaluateSession, useGenerateSessionQuestions, getGetSessionQuestionsQueryKey, getGetSessionQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useMediaStream } from "../hooks/use-media-stream";
 import { speak, cancelSpeech, speechSupported } from "../lib/speech";
-import { Mic, SquareSquare, Send, Bot, AlertTriangle, Volume2, VolumeX, Play, LogOut } from "lucide-react";
+import { Mic, Send, Bot, AlertTriangle, Volume2, VolumeX, Play, LogOut, Clock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 const QUESTION_TYPE_LABEL: Record<string, string> = {
@@ -19,6 +19,15 @@ const QUESTION_TYPE_LABEL: Record<string, string> = {
   coding: "CODING_CHALLENGE",
   soft_skill: "SOFT_SKILLS",
 };
+
+// The whole assessment shares a single time budget across all questions.
+const TIME_LIMIT_SECONDS = 35 * 60;
+const formatTime = (s: number) =>
+  `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+// Block clipboard / context-menu actions to deter candidates from copying the
+// questions out or pasting answers in.
+const blockClipboard = (e: React.SyntheticEvent) => e.preventDefault();
 
 export default function Interview() {
   const [, setLocation] = useLocation();
@@ -44,6 +53,8 @@ export default function Interview() {
   const [isRecording, setIsRecording] = useState(false);
   const [muted, setMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [remaining, setRemaining] = useState(TIME_LIMIT_SECONDS);
+  const finishedRef = useRef(false);
 
   // Auto-generate questions if not generated yet
   useEffect(() => {
@@ -112,8 +123,53 @@ export default function Interview() {
   const beginInterview = () => {
     cancelSpeech();
     setIsSpeaking(false);
+    // Recording runs continuously for the entire assessment — it starts once
+    // here and is never toggled per question.
+    setIsRecording(true);
+    setRemaining(TIME_LIMIT_SECONDS);
+    finishedRef.current = false;
     setStage("interview");
   };
+
+  // Submit the current answer (if any) and finalize the whole assessment.
+  // Used both by the last-question flow and when the time limit is reached.
+  const finalizeAssessment = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    cancelSpeech();
+    setIsSpeaking(false);
+    setIsRecording(false);
+    const evaluateAndExit = () =>
+      evaluateSession.mutate({ id }, { onSuccess: () => setLocation(`/results/${id}`) });
+    // If an answer submission is already in flight (e.g. the user pressed submit
+    // just as the timer hit 0), don't fire a duplicate — let that one persist and
+    // go straight to evaluation.
+    if (currentQuestion && !submitAnswer.isPending) {
+      submitAnswer.mutate(
+        { id, data: { questionId: currentQuestion.id, transcript: transcript.trim() } },
+        { onSuccess: evaluateAndExit, onError: evaluateAndExit }
+      );
+    } else {
+      evaluateAndExit();
+    }
+  };
+
+  // Single shared countdown across all questions.
+  useEffect(() => {
+    if (stage !== "interview") return;
+    const timer = setInterval(() => {
+      setRemaining((r) => (r <= 1 ? 0 : r - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [stage]);
+
+  // When the budget is exhausted, auto-finalize the assessment.
+  useEffect(() => {
+    if (stage === "interview" && remaining === 0) {
+      finalizeAssessment();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, stage]);
 
   // Let candidates leave the assessment and return to the dashboard. Once the
   // interview has started, confirm first since leaving abandons this attempt.
@@ -133,6 +189,11 @@ export default function Interview() {
 
   const handleNext = () => {
     if (!currentQuestion) return;
+    const isLast = currentIndex >= (questions?.length || 0) - 1;
+    if (isLast) {
+      finalizeAssessment();
+      return;
+    }
     cancelSpeech();
     setIsSpeaking(false);
 
@@ -149,19 +210,7 @@ export default function Interview() {
       {
         onSuccess: () => {
           setTranscript("");
-          setIsRecording(false);
-          if (currentIndex < (questions?.length || 0) - 1) {
-            setCurrentIndex((prev) => prev + 1);
-          } else {
-            evaluateSession.mutate(
-              { id },
-              {
-                onSuccess: () => {
-                  setLocation(`/results/${id}`);
-                },
-              }
-            );
-          }
+          setCurrentIndex((prev) => prev + 1);
         },
       }
     );
@@ -236,7 +285,13 @@ export default function Interview() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col overflow-hidden">
+    <div
+      className="min-h-screen bg-background text-foreground flex flex-col overflow-hidden"
+      onCopy={blockClipboard}
+      onCut={blockClipboard}
+      onPaste={blockClipboard}
+      onContextMenu={blockClipboard}
+    >
       {/* Top Bar */}
       <header className="h-14 border-b border-border bg-card/80 backdrop-blur flex items-center justify-between px-6">
         <div className="flex items-center gap-2 text-primary font-mono text-sm">
@@ -250,6 +305,14 @@ export default function Interview() {
           <Button variant="ghost" size="sm" className="font-mono text-xs h-7" onClick={toggleMute}>
             {muted ? <><VolumeX className="h-4 w-4 mr-1" /> MUTED</> : <><Volume2 className="h-4 w-4 mr-1" /> VOICE_ON</>}
           </Button>
+          <div
+            className={`flex items-center gap-1.5 font-mono text-sm tabular-nums ${
+              remaining <= 300 ? "text-destructive animate-pulse" : "text-primary"
+            }`}
+            title="Time remaining for the full assessment"
+          >
+            <Clock className="h-4 w-4" /> {formatTime(remaining)}
+          </div>
           <div className="font-mono text-sm text-muted-foreground">
             QUESTION {currentIndex + 1} OF {questions?.length}
           </div>
@@ -296,20 +359,19 @@ export default function Interview() {
               <span className="font-mono text-xs text-muted-foreground flex items-center gap-2">
                 <Mic className="h-3 w-3" /> TRANSCRIPT_INPUT
               </span>
-              <Button
-                variant={isRecording ? "destructive" : "secondary"}
-                size="sm"
-                className="h-6 text-xs font-mono"
-                onClick={() => setIsRecording(!isRecording)}
-              >
-                {isRecording ? <><SquareSquare className="h-3 w-3 mr-1" /> STOP</> : <><Mic className="h-3 w-3 mr-1" /> START</>}
-              </Button>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                PASTE_DISABLED
+              </span>
             </div>
             <Textarea
               className="flex-1 resize-none border-0 focus-visible:ring-0 rounded-none bg-transparent p-4 font-mono text-sm"
               placeholder="Type your answer here..."
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
+              onPaste={blockClipboard}
+              onCopy={blockClipboard}
+              onCut={blockClipboard}
+              onContextMenu={blockClipboard}
             />
           </Card>
 
