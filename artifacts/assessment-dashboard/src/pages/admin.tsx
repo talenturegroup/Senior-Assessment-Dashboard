@@ -341,6 +341,34 @@ function AdminSessionDetailDialog({
                       {evaluation.summary}
                     </p>
                   )}
+                  {(evaluation.strengths || evaluation.weaknesses) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border pt-3">
+                      {evaluation.strengths && (
+                        <div>
+                          <p className="font-mono text-[10px] text-green-500 mb-1">STRENGTHS</p>
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            {evaluation.strengths}
+                          </p>
+                        </div>
+                      )}
+                      {evaluation.weaknesses && (
+                        <div>
+                          <p className="font-mono text-[10px] text-destructive mb-1">AREAS_FOR_IMPROVEMENT</p>
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            {evaluation.weaknesses}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {evaluation.suggestions && (
+                    <div className="border-t border-border pt-3">
+                      <p className="font-mono text-[10px] text-muted-foreground mb-1">DEVELOPMENT_SUGGESTIONS</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {evaluation.suggestions}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-3 flex-wrap border-t border-border pt-3">
                     <Badge
                       variant="outline"
