@@ -10,6 +10,7 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- Optional env: `ADMIN_EMAILS` — comma-separated list of sign-in emails granted recruiter/admin access (case-insensitive). Unset = no one can reach the recruiter area.
 
 ## Stack
 
@@ -44,6 +45,7 @@ AI Assessment Dashboard (Arvencor): candidates sign in with Google, complete a p
 - Candidate responses are persisted and surfaced for human review on the results page (`GET /sessions/:id/answers`); evaluations carry `humanReviewStatus` (`pending`|`reviewed`) shown as a badge — AI scores are provisional.
 - **Retake limit: max 3 attempts per role per candidate.** Enforced server-side in `POST /sessions` (case-insensitive `roleTitle` count → 409 `RETAKE_LIMIT_REACHED`) and mirrored client-side on the dashboard (spotlight + role cards show `x/3`, disable start at the limit, banner on 409).
 - **Profile is a full page** (`profile.tsx`, Navbar/Footer) that auto-populates from an uploaded CV. The client extracts text (`src/lib/extract-cv.ts`: PDF via pdf.js, DOCX via mammoth, TXT) and `POST /candidates/me/cv` runs `parseCV` (OpenAI + deterministic fallback) to fill name/phone/location/skills and store all parsed sections in `cvParsed`.
+- **Recruiter/admin area** (`admin.tsx`, route `/admin`): authorized users review ALL candidates' sessions, answers, and scores in one place, and toggle each evaluation's `humanReviewStatus`. Authorization = signed-in user whose `candidate.email` ∈ `ADMIN_EMAILS` (comma-separated, case-insensitive). Server middleware `requireAdmin` (`auth.ts`) runs AFTER `requireAuth` + `attachCandidate` → 403 for non-admins. Admin routes (`routes/admin.ts`) are intentionally cross-candidate (not ownership-scoped); they are gated solely by `requireAdmin`. `GET /admin/access` returns `{isAdmin}` without 403 so the client can conditionally show the navbar "Recruiter" link (`use-admin.ts`). Server is the source of truth; client gating is advisory.
 
 ## User preferences
 
