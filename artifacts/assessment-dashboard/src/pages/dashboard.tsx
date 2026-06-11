@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useCurrentCandidate } from "../lib/use-candidate";
-import { useGetDashboardStats, useListSessions, useCreateSession } from "@workspace/api-client-react";
+import { useListSessions, useCreateSession } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { Footer } from "../components/footer";
 import { RoleCard } from "../components/role-card";
@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Activity, ShieldAlert, BadgeCheck, Clock, Layers, ChevronRight,
+  Activity, ShieldAlert, Clock, Layers, ChevronRight,
 } from "lucide-react";
 
 type Filter = "All" | RoleCategory;
@@ -44,7 +44,6 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<Filter>("All");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const { data: stats } = useGetDashboardStats();
   const { data: sessions, isLoading: isLoadingSessions } = useListSessions();
   const createSession = useCreateSession();
 
@@ -95,12 +94,6 @@ export default function Dashboard() {
     [filter]
   );
   const filters: Filter[] = ["All", ...ROLE_CATEGORIES];
-
-  const statCards = [
-    { icon: Activity, label: "PLATFORM_AVG", value: stats?.averageScore != null ? `${stats.averageScore.toFixed(0)}` : "--", suffix: "/ 100" },
-    { icon: BadgeCheck, label: "EVALUATIONS", value: stats?.completedSessions ?? "--" },
-    { icon: ShieldAlert, label: "HIRE_RATE", value: stats?.hireRate != null ? `${stats.hireRate.toFixed(0)}%` : "--" },
-  ];
 
   if (candidate && !candidate.profileComplete) {
     return (
@@ -161,29 +154,6 @@ export default function Dashboard() {
             {actionError}
           </div>
         )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {statCards.map((s) => {
-            const Icon = s.icon;
-            return (
-              <Card key={s.label} className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur">
-                <CardContent className="flex items-center gap-4 p-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
-                    <p className="mt-0.5 text-2xl font-bold">
-                      {s.value}
-                      {s.suffix && <span className="ml-1 text-sm font-normal text-muted-foreground">{s.suffix}</span>}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
 
