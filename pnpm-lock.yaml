@@ -30,9 +30,6 @@ catalogs:
     clsx:
       specifier: ^2.1.1
       version: 2.1.1
-    drizzle-orm:
-      specifier: ^0.45.2
-      version: 0.45.2
     framer-motion:
       specifier: ^12.23.24
       version: 12.38.0
@@ -174,8 +171,11 @@ importers:
         specifier: ^16.4.5
         version: 16.4.5
       drizzle-orm:
-        specifier: 'catalog:'
+        specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
+      drizzle-zod:
+        specifier: ^0.8.3
+        version: 0.8.3(drizzle-orm@0.45.2(@types/pg@8.20.0)(pg@8.20.0))(zod@3.25.76)
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -5148,6 +5148,11 @@ snapshots:
   drizzle-zod@0.8.3(drizzle-orm@0.31.0(@types/pg@8.20.0)(@types/react@19.2.14)(pg@8.20.0)(react@19.1.0))(zod@3.25.76):
     dependencies:
       drizzle-orm: 0.31.0(@types/pg@8.20.0)(@types/react@19.2.14)(pg@8.20.0)(react@19.1.0)
+      zod: 3.25.76
+
+  drizzle-zod@0.8.3(drizzle-orm@0.45.2(@types/pg@8.20.0)(pg@8.20.0))(zod@3.25.76):
+    dependencies:
+      drizzle-orm: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
       zod: 3.25.76
 
   duck@0.1.12:
