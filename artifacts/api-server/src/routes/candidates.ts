@@ -46,6 +46,15 @@ router.patch("/candidates/me", requireAuth, attachCandidate, async (req, res): P
   res.json(UpdateCurrentCandidateResponse.parse(serializeDates(candidate)));
 });
 
+router.get("/candidates/me/cv", requireAuth, attachCandidate, async (req, res): Promise<void> => {
+  const candidate = req.candidate!;
+  res.json({
+    cvText: candidate.cvText || null,
+    cvFileName: candidate.cvFileName || null,
+    cvParsed: candidate.cvParsed || null,
+  });
+});
+
 router.post("/candidates/me/cv", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const parsed = UploadCurrentCandidateCVBody.safeParse(req.body);
   if (!parsed.success) {

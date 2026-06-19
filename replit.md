@@ -30,7 +30,7 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Architecture decisions
 
-- **Auth = Replit-managed Clerk**, Google sign-in. Frontend wraps app in `ClerkProvider` with a branded `shadcn` appearance; web uses **cookie auth only** (same-origin), no Bearer tokens / `getToken`.
+- **Auth = Clerk**, Google sign-in. Frontend wraps app in `ClerkProvider` with a branded `shadcn` appearance; web uses **cookie auth only** (same-origin), no Bearer tokens / `getToken`.
 - **Candidate identity is server-derived.** Clerk users bridge to numeric candidate rows via `clerkUserId` (unique, nullable) on `candidates`. `getOrCreateCandidate` resolves by clerkUserId → email → insert. There is no client-supplied `candidateId`; all candidate ops are `/candidates/me` and sessions are scoped to `req.candidate.id`.
 - **Every session-scoped route enforces ownership** (`requireAuth` + `attachCandidate` + `session.candidateId === req.candidate.id`, 404 on mismatch) to prevent IDOR by numeric id.
 - AI calls (OpenAI) have deterministic fallbacks so the app works without `OPENAI_API_KEY`.

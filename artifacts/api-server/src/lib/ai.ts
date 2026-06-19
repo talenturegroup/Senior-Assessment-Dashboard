@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { logger } from "./logger";
 
-// Prefer the Replit AI Integrations proxy (no user API key required); fall back
+// Prefer the configured AI proxy (no user API key required); fall back
 // to a direct OpenAI key if one is configured. When neither is present the SDK
 // calls fail and every helper below degrades to its deterministic fallback.
 const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;

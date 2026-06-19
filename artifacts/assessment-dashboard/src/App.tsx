@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
+import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
+// import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Redirect, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -17,10 +17,7 @@ import Admin from "./pages/admin";
 
 const queryClient = new QueryClient();
 
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
@@ -94,36 +91,68 @@ function SignInPage() {
   );
 }
 
+function EmailVerificationPage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  
+  if (!isLoaded) return <div>Loading...</div>;
+  
+  if (isSignedIn) {
+    return <Redirect to="/dashboard" />;
+  }
+  
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+      <div className="max-w-md text-center">
+        <h1 className="text-2xl font-bold mb-4">Check Your Email</h1>
+        <p className="text-muted-foreground mb-6">
+          We've sent a verification link to your email. Please click it to complete your sign-up.
+        </p>
+        <button 
+          onClick={() => window.location.href = `${basePath}/sign-in`}
+          className="text-primary hover:underline"
+        >
+          Return to Sign In
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+      <SignUp 
+        routing="path" 
+        path={`${basePath}/sign-up`} 
+        signInUrl={`${basePath}/sign-in`}
+        forceRedirectUrl={`${basePath}/verify-email`}
+      />
     </div>
   );
 }
 
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <Landing />
-      </Show>
-    </>
-  );
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) return <div>Loading...</div>;
+
+  if (isSignedIn) {
+    return <Redirect to="/dashboard" />;
+  }
+
+  return <Landing />;
 }
 
 function AuthedRoute({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <Show when="signed-in">{children}</Show>
-      <Show when="signed-out">
-        <Redirect to="/" />
-      </Show>
-    </>
-  );
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) return <div>Loading...</div>;
+
+  if (isSignedIn) {
+    return <>{children}</>;
+  }
+
+  return <Redirect to="/" />;
 }
 
 function ClerkQueryClientCacheInvalidator() {
@@ -151,7 +180,7 @@ function ClerkProviderWithRoutes() {
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
+      proxyUrl={import.meta.env.MODE === 'production' ? clerkProxyUrl : undefined}
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
@@ -179,6 +208,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/" component={HomeRedirect} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
+            <Route path="/verify-email" component={EmailVerificationPage} />
             <Route path="/profile">
               <AuthedRoute>
                 <Profile />

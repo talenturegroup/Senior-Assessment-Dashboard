@@ -5,7 +5,7 @@ description: How Clerk auth maps to existing numeric candidate rows, and the own
 
 # Clerk → numeric candidate bridge
 
-Auth is **Replit-managed Clerk** (Google sign-in). The app already had numeric `candidates.id` PKs and FKs (sessions, evaluations), so we did NOT switch PKs to Clerk user ids. Instead:
+Auth is **Clerk** (Google sign-in). The app already had numeric `candidates.id` PKs and FKs (sessions, evaluations), so we did NOT switch PKs to Clerk user ids. Instead:
 
 - `candidates.clerkUserId` (text, unique, nullable) bridges the Clerk user to the numeric row.
 - `getOrCreateCandidate` resolves identity **clerkUserId → email → insert** (backfills clerkUserId on the email match so pre-existing email rows adopt the Clerk user on first login).

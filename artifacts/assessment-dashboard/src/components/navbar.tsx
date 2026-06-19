@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Show, useClerk } from "@clerk/react";
+import { useClerk, useAuth } from "@clerk/react";
 import { BrainCircuit, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { useIsAdmin } from "../lib/use-admin";
@@ -9,7 +9,10 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 export function Navbar() {
   const [, setLocation] = useLocation();
   const { signOut } = useClerk();
+  const { isLoaded, isSignedIn } = useAuth();
   const { isAdmin } = useIsAdmin();
+
+  if (!isLoaded) return null;
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -18,7 +21,7 @@ export function Navbar() {
           <BrainCircuit className="h-5 w-5" />
           <span>Arvencor</span>
         </Link>
-        <Show when="signed-in">
+        {isSignedIn ? (
           <div className="flex items-center gap-4">
             <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-primary transition-colors">
               Dashboard
@@ -44,8 +47,7 @@ export function Navbar() {
               Sign Out
             </Button>
           </div>
-        </Show>
-        <Show when="signed-out">
+        ) : (
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -63,7 +65,7 @@ export function Navbar() {
               SIGN UP
             </Button>
           </div>
-        </Show>
+        )}
       </div>
     </nav>
   );
