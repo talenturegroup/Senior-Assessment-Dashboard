@@ -355,6 +355,9 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+      console.log("[API Request] Authorization header attached");
+    } else {
+      console.log("[API Request] No token available, request will be unauthenticated");
     }
   }
 

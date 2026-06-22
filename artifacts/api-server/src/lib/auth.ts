@@ -16,7 +16,9 @@ declare global {
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const auth = getAuth(req);
   const userId = auth?.userId;
+  console.log("[Backend Auth] requireAuth called, userId:", userId || "undefined");
   if (!userId) {
+    console.log("[Backend Auth] No userId found, returning 401");
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, createContext, useContext } from "react";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 // import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -7,6 +7,18 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
+
+// Auth readiness context to prevent race-condition 401s
+const AuthReadyContext = createContext<{ isReady: boolean; setReady: (ready: boolean) => void }>({
+  isReady: false,
+  setReady: () => {},
+});
+
+export function useAuthReady(): boolean {
+  const { isReady } = useContext(AuthReadyContext);
+  return isReady;
+}
 
 import Landing from "./pages/landing";
 import Profile from "./pages/profile";
@@ -18,8 +30,6 @@ import Admin from "./pages/admin";
 const queryClient = new QueryClient();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -174,36 +184,69 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function AuthTokenInitializer() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { setReady } = useContext(AuthReadyContext);
+
+  useEffect(() => {
+    // Only configure auth when Clerk is fully loaded
+    if (!isLoaded) {
+      console.log("[Auth] Clerk not loaded yet, waiting...");
+      return;
+    }
+
+    // Configure the API client to use Clerk's getToken for authentication
+    setAuthTokenGetter(async () => {
+      try {
+        const token = await getToken();
+        console.log("[Auth] Token retrieved:", token ? "exists" : "null");
+        return token;
+      } catch (error) {
+        console.error("[Auth] Failed to get Clerk token:", error);
+        return null;
+      }
+    });
+
+    // Mark auth as ready when loaded
+    setReady(true);
+    console.log("[Auth] Auth initialized, isSignedIn:", isSignedIn);
+  }, [isLoaded, isSignedIn, getToken, setReady]);
+
+  return null;
+}
+
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      proxyUrl={import.meta.env.MODE === 'production' ? clerkProxyUrl : undefined}
-      appearance={clerkAppearance}
-      signInUrl={`${basePath}/sign-in`}
-      signUpUrl={`${basePath}/sign-up`}
-      localization={{
-        signIn: {
-          start: {
-            title: "Access EVAL_CORE",
-            subtitle: "Sign in to run your technical assessment",
+    <AuthReadyContext.Provider value={{ isReady: isAuthReady, setReady: setIsAuthReady }}>
+      <ClerkProvider
+        publishableKey={clerkPubKey}
+        appearance={clerkAppearance}
+        signInUrl={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        localization={{
+          signIn: {
+            start: {
+              title: "Access EVAL_CORE",
+              subtitle: "Sign in to run your technical assessment",
+            },
           },
-        },
-        signUp: {
-          start: {
-            title: "Initialize profile",
-            subtitle: "Create your account to begin",
+          signUp: {
+            start: {
+              title: "Initialize profile",
+              subtitle: "Create your account to begin",
+            },
           },
-        },
-      }}
-      routerPush={(to) => setLocation(stripBase(to))}
-      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
-    >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
-        <TooltipProvider>
+        }}
+        routerPush={(to) => setLocation(stripBase(to))}
+        routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+      >
+        <QueryClientProvider client={queryClient}>
+          <ClerkQueryClientCacheInvalidator />
+          <AuthTokenInitializer />
+          <TooltipProvider>
           <Switch>
             <Route path="/" component={HomeRedirect} />
             <Route path="/sign-in/*?" component={SignInPage} />
@@ -240,6 +283,7 @@ function ClerkProviderWithRoutes() {
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>
+    </AuthReadyContext.Provider>
   );
 }
 
