@@ -58,8 +58,6 @@ app.use(cors({
   optionsSuccessStatus: 204, // Some legacy browsers choke on 204
 }));
 
-// Handle preflight requests explicitly
-app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
