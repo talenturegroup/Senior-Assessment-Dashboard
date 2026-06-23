@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, createContext, useContext } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 // import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -8,17 +8,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
-
-// Auth readiness context to prevent race-condition 401s
-const AuthReadyContext = createContext<{ isReady: boolean; setReady: (ready: boolean) => void }>({
-  isReady: false,
-  setReady: () => {},
-});
-
-export function useAuthReady(): boolean {
-  const { isReady } = useContext(AuthReadyContext);
-  return isReady;
-}
+import { Brain } from "lucide-react";
+import { AuthReadyContext } from "./hooks/useAuthReady";
 
 import Landing from "./pages/landing";
 import Profile from "./pages/profile";
@@ -49,9 +40,11 @@ const clerkAppearance = {
   options: {
     logoPlacement: "inside" as const,
     logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    logoImageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2319D3E6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.54Z'/%3E%3Cpath d='M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.54Z'/%3E%3C/svg%3E",
     socialButtonsPlacement: "top" as const,
     socialButtonsVariant: "blockButton" as const,
+    allowedStrategies: ["oauth_google"],
+    branding: false,
   },
   variables: {
     colorPrimary: "hsl(190 90% 50%)",
@@ -63,33 +56,36 @@ const clerkAppearance = {
     colorInputForeground: "hsl(220 10% 98%)",
     colorNeutral: "hsl(220 10% 98%)",
     fontFamily: "Inter, sans-serif",
-    borderRadius: "0.25rem",
+    borderRadius: "0.5rem",
   },
   elements: {
     rootBox: "w-full flex justify-center",
     cardBox:
-      "bg-[hsl(220_20%_6%)] border border-[hsl(220_15%_12%)] rounded-lg w-[440px] max-w-full overflow-hidden shadow-[0_0_60px_-12px_rgba(25,211,230,0.15)]",
-    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: "text-[hsl(220_10%_98%)] font-bold tracking-tight",
-    headerSubtitle: "text-[hsl(220_10%_65%)]",
+      "bg-[hsl(220_20%_6%)] border border-[hsl(220_15%_18%)] rounded-xl w-[420px] max-w-full overflow-hidden shadow-[0_0_60px_-12px_rgba(25,211,230,0.15)] p-8",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none !p-0",
+    headerTitle: "text-[hsl(220_10%_98%)] font-bold tracking-tight text-2xl",
+    headerSubtitle: "text-[hsl(220_10%_65%)] text-sm",
+    header: "!flex !flex-col !items-center !text-center !space-y-2 !mb-6",
     socialButtonsBlockButton:
-      "border border-[hsl(220_15%_18%)] bg-[hsl(220_15%_10%)] hover:bg-[hsl(220_15%_14%)]",
+      "border border-[hsl(220_15%_18%)] bg-[hsl(220_15%_10%)] hover:bg-[hsl(220_15%_14%)] w-full",
     socialButtonsBlockButtonText: "text-[hsl(220_10%_98%)] font-medium",
     dividerLine: "bg-[hsl(220_15%_18%)]",
     dividerText: "text-[hsl(220_10%_65%)] font-mono text-xs uppercase tracking-wider",
-    formFieldLabel: "text-[hsl(220_10%_98%)] font-mono text-xs tracking-wide",
+    divider: "!my-6",
+    formFieldLabel: "text-[hsl(220_10%_98%)] font-mono text-xs tracking-wide uppercase",
     formFieldInput:
-      "bg-[hsl(220_15%_12%)] border border-[hsl(220_15%_18%)] text-[hsl(220_10%_98%)]",
+      "bg-[hsl(220_15%_12%)] border border-[hsl(220_15%_18%)] text-[hsl(220_10%_98%)] focus:border-[hsl(190_90%_50%)] focus:ring-1 focus:ring-[hsl(190_90%_50%)]",
     formButtonPrimary:
-      "bg-[hsl(190_90%_50%)] hover:bg-[hsl(190_90%_45%)] text-[hsl(220_20%_4%)] font-mono text-xs tracking-wider",
-    footerActionText: "text-[hsl(220_10%_65%)]",
+      "bg-[hsl(190_90%_50%)] hover:bg-[hsl(190_90%_45%)] text-[hsl(220_20%_4%)] font-mono text-xs tracking-wider w-full rounded-lg",
+    footerActionText: "text-[hsl(220_10%_65%)] text-sm",
     footerActionLink: "text-[hsl(190_90%_50%)] hover:text-[hsl(190_90%_60%)] font-medium",
+    footer: "!mt-6",
     identityPreviewEditButton: "text-[hsl(190_90%_50%)]",
     formFieldSuccessText: "text-[hsl(190_90%_50%)]",
     formFieldErrorText: "text-[hsl(0_80%_65%)]",
     otpCodeFieldInput: "bg-[hsl(220_15%_12%)] border border-[hsl(220_15%_18%)] text-[hsl(220_10%_98%)]",
-    logoImage: "h-10 w-10",
+    logoImage: "h-12 w-12",
+    socialButtons: "!flex !flex-col !space-y-3",
   },
 };
 
@@ -131,12 +127,44 @@ function EmailVerificationPage() {
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <SignUp 
-        routing="path" 
-        path={`${basePath}/sign-up`} 
-        signInUrl={`${basePath}/sign-in`}
-        forceRedirectUrl={`${basePath}/verify-email`}
-      />
+      <div className="w-full max-w-4xl space-y-12">
+        {/* Header Section */}
+        <div className="text-center space-y-4">
+          <p className="text-primary font-mono text-xs uppercase tracking-widest">
+            ARVENCOR ASSESSMENT
+          </p>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+            Welcome to your AI-driven evaluation
+          </h1>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Sign up to begin, then pick the specialization you want to be evaluated on — engineering, data & AI, infrastructure, security, and more.
+          </p>
+        </div>
+
+        {/* Sign Up Card */}
+        <div className="flex justify-center">
+          <SignUp 
+            routing="path" 
+            path={`${basePath}/sign-up`} 
+            signInUrl={`${basePath}/sign-in`}
+            forceRedirectUrl={`${basePath}/verify-email`}
+            appearance={{
+              ...clerkAppearance,
+              elements: {
+                ...clerkAppearance.elements,
+                footerPages: "!hidden",
+                badge: "!hidden",
+                developmentModeWarning: "!hidden",
+                poweredByClerk: "!hidden",
+                clerkPoweredBy: "!hidden",
+                footer: "!flex !flex-col !items-center !text-center !space-y-2 !mt-6",
+                socialButtonsGithubButton: "!hidden",
+                socialButtonsGithub: "!hidden",
+              },
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

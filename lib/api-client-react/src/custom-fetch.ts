@@ -372,3 +372,9 @@ export async function customFetch<T = unknown>(
 
   return (await parseSuccessBody(response, responseType, requestInfo)) as T;
 }
+
+export async function incrementSessionViolations(sessionId: number): Promise<{ violations: number }> {
+  return customFetch<{ violations: number }>(`/api/sessions/${sessionId}/violations`, {
+    method: 'POST',
+  });
+}

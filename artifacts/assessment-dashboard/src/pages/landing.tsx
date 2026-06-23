@@ -46,11 +46,11 @@ export default function Landing() {
         {/* Hero */}
         <div className="mx-auto max-w-3xl space-y-6 text-center">
           <h1 className="text-balance text-5xl font-extrabold tracking-tighter md:text-6xl">
-            Prove your skills with{" "}
+            Get matched to top{" "}
             <span className="bg-gradient-to-r from-primary to-cyan-300 bg-clip-text text-transparent">
-              AI-driven
+              AI
             </span>{" "}
-            assessments.
+            roles.
           </h1>
           <p className="mx-auto max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
             Pick a role and face a rigorous, adaptive technical interview — calibrated for

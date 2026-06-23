@@ -134,6 +134,32 @@ router.patch("/sessions/:id", requireAuth, attachCandidate, async (req, res): Pr
   res.json(UpdateSessionResponse.parse(serializeDates(session)));
 });
 
+router.post("/sessions/:id/violations", requireAuth, attachCandidate, async (req, res): Promise<void> => {
+  const params = UpdateSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [owned] = await db
+    .select({ candidateId: sessionsTable.candidateId, violations: sessionsTable.violations })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, params.data.id));
+
+  if (!owned || owned.candidateId !== req.candidate!.id) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  const [session] = await db
+    .update(sessionsTable)
+    .set({ violations: sql`${sessionsTable.violations} + 1` })
+    .where(eq(sessionsTable.id, params.data.id))
+    .returning();
+
+  res.json({ violations: session.violations });
+});
+
 router.get("/sessions/:id/questions", requireAuth, attachCandidate, async (req, res): Promise<void> => {
   const params = GetSessionQuestionsParams.safeParse(req.params);
   if (!params.success) {

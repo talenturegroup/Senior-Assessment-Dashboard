@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useMediaStream } from "../hooks/use-media-stream";
+import { useGazeDetection } from "../hooks/use-gaze-detection";
+import { incrementSessionViolations } from "@workspace/api-client-react";
 import { speak, cancelSpeech, speechSupported } from "../lib/speech";
-import { Mic, Send, Bot, AlertTriangle, Volume2, VolumeX, Play, LogOut, Clock } from "lucide-react";
+import { Mic, Send, Bot, AlertTriangle, Volume2, VolumeX, Play, LogOut, Clock, EyeOff } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const QUESTION_TYPE_LABEL: Record<string, string> = {
   technical: "TECHNICAL",
@@ -54,7 +57,74 @@ export default function Interview() {
   const [muted, setMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [remaining, setRemaining] = useState(TIME_LIMIT_SECONDS);
+  const [violations, setViolations] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [showViolationModal, setShowViolationModal] = useState(false);
   const finishedRef = useRef(false);
+
+  const { gazeStatus, loadError } = useGazeDetection({ videoRef, enabled: isRecording });
+
+  // Debug: Log gaze status changes
+  useEffect(() => {
+    console.log("[Interview] Gaze status updated:", gazeStatus, "| loadError:", loadError);
+  }, [gazeStatus, loadError]);
+
+  // Gaze detection and violation logic
+  useEffect(() => {
+    if (!isRecording) {
+      setCountdown(null);
+      return;
+    }
+
+    let countdownInterval: number | null = null;
+
+    if (gazeStatus === "LOOKING_AWAY") {
+      // Start countdown from 6 if not already counting
+      if (countdown === null) {
+        setCountdown(6);
+      }
+    } else {
+      // Reset countdown if looking back at camera
+      setCountdown(null);
+    }
+
+    countdownInterval = window.setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          // Countdown reached 0 while still looking away - record violation
+          if (gazeStatus === "LOOKING_AWAY" && prev === 1) {
+            console.log("[Interview] Countdown reached 0, calling recordViolation");
+            recordViolation();
+          }
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownInterval) clearInterval(countdownInterval);
+    };
+  }, [gazeStatus, isRecording, countdown]);
+
+  const recordViolation = async () => {
+    console.log("[Interview] Recording violation for session:", id);
+    try {
+      const result = await incrementSessionViolations(id);
+      console.log("[Interview] Violation API response:", result);
+      setViolations(result.violations);
+      
+      if (result.violations >= 5) {
+        console.log("[Interview] Violation limit reached, showing modal and auto-submitting");
+        setShowViolationModal(true);
+        setTimeout(() => {
+          finalizeAssessment();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("[Interview] Failed to record violation:", error);
+    }
+  };
 
   // Auto-generate questions if not generated yet
   useEffect(() => {
@@ -413,6 +483,12 @@ export default function Interview() {
                 RECORDING
               </div>
             )}
+            {countdown !== null && (
+              <div className="absolute inset-0 bg-destructive/90 flex flex-col items-center justify-center text-white font-mono">
+                <EyeOff className="h-8 w-8 mb-2 animate-pulse" />
+                <div className="text-sm font-bold">FACE_THE_CAMERA — {countdown}s</div>
+              </div>
+            )}
           </Card>
 
           <Card className="flex-1 bg-card/40 border-border p-4">
@@ -432,11 +508,41 @@ export default function Interview() {
                 </div>
                 <Progress value={Math.min((transcript.length / 500) * 100, 100)} className="h-1" />
               </div>
+              <div>
+                <div className="flex justify-between text-xs font-mono mb-1">
+                  <span>GAZE_TRACKING</span>
+                  <span className={loadError ? "text-destructive" : gazeStatus === "LOOKING_AWAY" ? "text-destructive" : "text-primary"}>
+                    {loadError ? "UNAVAILABLE" : gazeStatus}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs font-mono mb-1">
+                  <span>VIOLATIONS</span>
+                  <span className={violations >= 5 ? "text-destructive" : violations >= 3 ? "text-yellow-500" : "text-primary"}>{violations} / 5</span>
+                </div>
+                <Progress value={(violations / 5) * 100} className="h-1" />
+              </div>
             </div>
+            <p className="text-[10px] text-muted-foreground font-mono mt-4 leading-tight">
+              Looking away &gt;6s = 1 violation. 5 violations ends the assessment.
+            </p>
           </Card>
         </div>
 
       </main>
+
+      <Dialog open={showViolationModal}>
+        <DialogContent className="bg-destructive/10 border-destructive">
+          <div className="text-center space-y-4">
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+            <h2 className="text-xl font-bold text-destructive">ASSESSMENT_TERMINATED</h2>
+            <p className="text-muted-foreground">
+              You have reached the maximum number of gaze violations (5). Your assessment is being submitted automatically.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
