@@ -1,13 +1,7 @@
 import { Router, type IRouter } from "express";
-import { z } from "zod";
 import { TTS_CONFIG } from "../lib/tts-config";
 
 const router: IRouter = Router();
-
-// Request body validation schema
-const TTSRequestSchema = z.object({
-  text: z.string().min(1).max(TTS_CONFIG.maxTextLength),
-});
 
 /**
  * POST /api/tts
@@ -16,15 +10,18 @@ const TTSRequestSchema = z.object({
 router.post("/tts", async (req, res): Promise<void> => {
   console.log("[TTS] Generating speech for text:", req.body.text?.substring(0, 50) + "...");
   
-  // Validate request body
-  const parseResult = TTSRequestSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    console.error("[TTS] Invalid request body:", parseResult.error.message);
-    res.status(400).json({ error: "Invalid request body", details: parseResult.error.message });
+  // Validate request body (simple runtime validation)
+  const text = req.body.text;
+  if (typeof text !== "string" || !text.trim()) {
+    console.error("[TTS] Invalid request body: text is required and must be a non-empty string");
+    res.status(400).json({ error: "Invalid request body", details: "text is required and must be a non-empty string" });
     return;
   }
-
-  const { text } = parseResult.data;
+  if (text.length > TTS_CONFIG.maxTextLength) {
+    console.error("[TTS] Invalid request body: text exceeds maximum length");
+    res.status(400).json({ error: "Invalid request body", details: `text must not exceed ${TTS_CONFIG.maxTextLength} characters` });
+    return;
+  }
   const apiKey = process.env.ELEVENLABS_API_KEY;
 
   if (!apiKey) {
