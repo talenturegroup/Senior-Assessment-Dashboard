@@ -364,6 +364,7 @@ router.post("/sessions/:id/evaluate", requireAuth, attachCandidate, async (req, 
   }
 
   // Handle disqualification - skip AI scoring, set default values
+  // Force rebuild to clear Render cache
   if (disqualified) {
     const [evaluation] = await db
       .insert(evaluationsTable)
