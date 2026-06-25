@@ -135,29 +135,36 @@ router.patch("/sessions/:id", requireAuth, attachCandidate, async (req, res): Pr
 });
 
 router.post("/sessions/:id/violations", requireAuth, attachCandidate, async (req, res): Promise<void> => {
-  const params = UpdateSessionParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = UpdateSessionParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [owned] = await db
+      .select({ candidateId: sessionsTable.candidateId, violations: sessionsTable.violations })
+      .from(sessionsTable)
+      .where(eq(sessionsTable.id, params.data.id));
+
+    if (!owned || owned.candidateId !== req.candidate!.id) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const [session] = await db
+      .update(sessionsTable)
+      .set({ violations: sql`${sessionsTable.violations} + 1` })
+      .where(eq(sessionsTable.id, params.data.id))
+      .returning();
+
+    res.json({ violations: session.violations });
+  } catch (error) {
+    console.error("Violation route error:", error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
-
-  const [owned] = await db
-    .select({ candidateId: sessionsTable.candidateId, violations: sessionsTable.violations })
-    .from(sessionsTable)
-    .where(eq(sessionsTable.id, params.data.id));
-
-  if (!owned || owned.candidateId !== req.candidate!.id) {
-    res.status(404).json({ error: "Session not found" });
-    return;
-  }
-
-  const [session] = await db
-    .update(sessionsTable)
-    .set({ violations: sql`${sessionsTable.violations} + 1` })
-    .where(eq(sessionsTable.id, params.data.id))
-    .returning();
-
-  res.json({ violations: session.violations });
 });
 
 router.get("/sessions/:id/questions", requireAuth, attachCandidate, async (req, res): Promise<void> => {
@@ -326,11 +333,15 @@ router.post("/sessions/:id/answers", requireAuth, attachCandidate, async (req, r
 });
 
 router.post("/sessions/:id/evaluate", requireAuth, attachCandidate, async (req, res): Promise<void> => {
+  console.log("[Backend] /sessions/:id/evaluate request body:", req.body);
   const params = EvaluateSessionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
+
+  const { disqualified = false } = req.body;
+  console.log("[Backend] Extracted disqualified flag:", disqualified);
 
   const [session] = await db
     .select()
@@ -352,6 +363,41 @@ router.post("/sessions/:id/evaluate", requireAuth, attachCandidate, async (req, 
     return;
   }
 
+  // Handle disqualification - skip AI scoring, set default values
+  if (disqualified) {
+    const [evaluation] = await db
+      .insert(evaluationsTable)
+      .values({
+        sessionId: params.data.id,
+        overallScore: 0,
+        roleFitScore: 0,
+        rating: "NO_HIRE",
+        technicalScore: 0,
+        communicationScore: 0,
+        domainScore: 0,
+        strengths: "N/A - Disqualified",
+        weaknesses: `Disqualified due to ${session.violations} gaze violations`,
+        suggestions: "N/A - Disqualified",
+        readyForHiring: false,
+        summary: "Assessment terminated due to proctoring violations.",
+        humanReviewStatus: "pending",
+      })
+      .returning();
+
+    await db
+      .update(sessionsTable)
+      .set({
+        status: "disqualified",
+        completedAt: new Date(),
+        disqualificationReason: `${session.violations} gaze violations`,
+      })
+      .where(eq(sessionsTable.id, params.data.id));
+
+    res.json(EvaluateSessionResponse.parse(serializeDates(evaluation)));
+    return;
+  }
+
+  // Normal evaluation flow
   const answers = await db
     .select({
       questionText: questionsTable.questionText,

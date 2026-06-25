@@ -12,6 +12,7 @@ export const sessionsTable = pgTable("sessions", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   violations: integer("violations").notNull().default(0),
+  disqualificationReason: text("disqualification_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

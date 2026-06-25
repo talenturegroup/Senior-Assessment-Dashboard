@@ -13,7 +13,7 @@ import { incrementSessionViolations } from "@workspace/api-client-react";
 import { speak, cancelSpeech, speechSupported } from "../lib/speech";
 import { Mic, Send, Bot, AlertTriangle, Volume2, VolumeX, Play, LogOut, Clock, EyeOff } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const QUESTION_TYPE_LABEL: Record<string, string> = {
   technical: "TECHNICAL",
@@ -60,6 +60,7 @@ export default function Interview() {
   const [violations, setViolations] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showViolationModal, setShowViolationModal] = useState(false);
+  const [isDisqualified, setIsDisqualified] = useState(false);
   const finishedRef = useRef(false);
 
   const { gazeStatus, loadError } = useGazeDetection({ videoRef, enabled: isRecording });
@@ -113,12 +114,13 @@ export default function Interview() {
       const result = await incrementSessionViolations(id);
       console.log("[Interview] Violation API response:", result);
       setViolations(result.violations);
-      
+
       if (result.violations >= 5) {
         console.log("[Interview] Violation limit reached, showing modal and auto-submitting");
+        setIsDisqualified(true);
         setShowViolationModal(true);
         setTimeout(() => {
-          finalizeAssessment();
+          finalizeAssessment(true);
         }, 2000);
       }
     } catch (error) {
@@ -203,14 +205,18 @@ export default function Interview() {
 
   // Submit the current answer (if any) and finalize the whole assessment.
   // Used both by the last-question flow and when the time limit is reached.
-  const finalizeAssessment = () => {
+  const finalizeAssessment = (forceDisqualified = false) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     cancelSpeech();
     setIsSpeaking(false);
     setIsRecording(false);
-    const evaluateAndExit = () =>
-      evaluateSession.mutate({ id }, { onSuccess: () => setLocation(`/results/${id}`) });
+    const evaluateAndExit = () => {
+      const disqualified = forceDisqualified || isDisqualified;
+      console.log("[Interview] evaluateSession disqualified value:", disqualified);
+      console.log("[Interview] evaluateSession request data:", { id, data: { disqualified } });
+      evaluateSession.mutate({ id, data: { disqualified } }, { onSuccess: () => setLocation(`/results/${id}`) });
+    };
     // If an answer submission is already in flight (e.g. the user pressed submit
     // just as the timer hit 0), don't fire a duplicate — let that one persist and
     // go straight to evaluation.
@@ -534,6 +540,10 @@ export default function Interview() {
 
       <Dialog open={showViolationModal}>
         <DialogContent className="bg-destructive/10 border-destructive">
+          <DialogTitle className="sr-only">Assessment Terminated</DialogTitle>
+          <DialogDescription className="sr-only">
+            Assessment terminated due to maximum gaze violations reached
+          </DialogDescription>
           <div className="text-center space-y-4">
             <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
             <h2 className="text-xl font-bold text-destructive">ASSESSMENT_TERMINATED</h2>

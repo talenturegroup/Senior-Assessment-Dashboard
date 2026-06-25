@@ -289,6 +289,16 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                disqualified:
+                  type: boolean
+                  default: false
       responses:
         "200":
           description: Evaluation complete
@@ -589,7 +599,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [pending, in_progress, completed, evaluated]
+          enum: [pending, in_progress, completed, evaluated, disqualified]
         questionsGenerated:
           type: boolean
         startedAt:
@@ -613,7 +623,7 @@ components:
       properties:
         status:
           type: string
-          enum: [pending, in_progress, completed, evaluated]
+          enum: [pending, in_progress, completed, evaluated, disqualified]
         startedAt:
           type: string
         completedAt:

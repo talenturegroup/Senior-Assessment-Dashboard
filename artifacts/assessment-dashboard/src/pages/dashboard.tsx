@@ -10,8 +10,10 @@ import { ALL_ROLES, ROLE_CATEGORIES, type RoleCategory } from "../lib/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
-  Activity, ShieldAlert, Clock, Layers, ChevronRight,
+  Activity, ShieldAlert, Clock, Layers, ChevronRight, Search, CheckCircle2, Circle,
 } from "lucide-react";
 
 type Filter = "All" | RoleCategory;
@@ -42,10 +44,36 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { candidate, isLoading: isLoadingCandidate } = useCurrentCandidate();
   const [filter, setFilter] = useState<Filter>("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: sessions, isLoading: isLoadingSessions } = useListSessions();
   const createSession = useCreateSession();
+
+  // Stats calculation
+  const stats = useMemo(() => {
+    const completedCount = sessions?.filter(s => s.status === "evaluated").length ?? 0;
+    const activeCount = sessions?.filter(s => s.status !== "evaluated" && s.status !== "disqualified").length ?? 0;
+    const disqualifiedCount = sessions?.filter(s => s.status === "disqualified").length ?? 0;
+    return {
+      roles: ALL_ROLES.length,
+      completed: completedCount,
+      active: activeCount,
+      disqualified: disqualifiedCount,
+    };
+  }, [sessions]);
+
+  // Profile setup progress
+  const profileProgress = useMemo(() => {
+    const cvUploaded = !!candidate?.cvFileName;
+    const hasCompletedAssessment = sessions?.some(s => s.status === "evaluated") ?? false;
+    const completed = [cvUploaded, hasCompletedAssessment].filter(Boolean).length;
+    return {
+      cvUploaded,
+      hasCompletedAssessment,
+      percentage: (completed / 2) * 100,
+    };
+  }, [candidate, sessions]);
 
   useEffect(() => {
     if (candidate && !candidate.profileComplete) {
@@ -90,8 +118,19 @@ export default function Dashboard() {
   };
 
   const visibleRoles = useMemo(
-    () => (filter === "All" ? ALL_ROLES : ALL_ROLES.filter((r) => r.category === filter)),
-    [filter]
+    () => {
+      let filtered = filter === "All" ? ALL_ROLES : ALL_ROLES.filter((r) => r.category === filter);
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(r =>
+          r.title.toLowerCase().includes(query) ||
+          r.category.toLowerCase().includes(query) ||
+          r.desc.toLowerCase().includes(query)
+        );
+      }
+      return filtered;
+    },
+    [filter, searchQuery]
   );
   const filters: Filter[] = ["All", ...ROLE_CATEGORIES];
 
@@ -113,7 +152,7 @@ export default function Dashboard() {
       <main className="z-10 mx-auto w-full max-w-7xl flex-1 space-y-8 px-4 py-10">
 
         {/* Header */}
-        <div className="flex flex-col gap-4 border-b border-border/60 pb-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 border-b border-border/60 pb-6 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 font-mono text-lg font-bold text-primary">
               {initials(candidate?.name)}
@@ -132,6 +171,21 @@ export default function Dashboard() {
               <p className="mt-1 font-mono text-sm text-muted-foreground">
                 {candidate?.role || "Select a role below to begin"}
               </p>
+            </div>
+          </div>
+          {/* Stats Row */}
+          <div className="flex gap-6 md:gap-8">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-primary">{stats.roles}</p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">ROLES</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-emerald-400">{stats.completed}</p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">COMPLETED</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-amber-400">{stats.active}</p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">ACTIVE</p>
             </div>
           </div>
         </div>
@@ -155,6 +209,35 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Profile Setup Card */}
+        <Card className="border-border/50 bg-card/40">
+          <CardContent className="p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-mono text-sm font-bold tracking-tight text-foreground">PROFILE_SETUP</h3>
+              <span className="font-mono text-xs text-primary">{profileProgress.percentage}%</span>
+            </div>
+            <Progress value={profileProgress.percentage} className="mb-4 h-2" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex items-center gap-3">
+                {profileProgress.cvUploaded ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <Circle className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span className="text-sm text-muted-foreground">Account created & CV uploaded</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {profileProgress.hasCompletedAssessment ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <Circle className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span className="text-sm text-muted-foreground">Complete your first assessment</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
 
           {/* Role Cards */}
@@ -162,35 +245,102 @@ export default function Dashboard() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <h2 className="flex items-center gap-2 font-mono text-lg font-bold tracking-tight">
                 <Layers className="h-5 w-5 text-primary" /> AVAILABLE_ASSESSMENTS
+                <span className="font-mono text-xs text-muted-foreground">({visibleRoles.length} roles)</span>
               </h2>
-              <div className="flex flex-wrap gap-2">
-                {filters.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    aria-pressed={filter === f}
-                    onClick={() => setFilter(f)}
-                    className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors ${
-                      filter === f
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {visibleRoles.map((role) => (
-                <RoleCard
-                  key={role.title}
-                  role={role}
-                  onSelect={handleRoleClick}
-                  disabled={createSession.isPending}
-                  completed={hasCompleted(role.title)}
-                />
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search roles by title, category, or skill..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 font-mono text-sm"
+              />
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex flex-wrap gap-2">
+              {filters.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={filter === f}
+                  onClick={() => setFilter(f)}
+                  className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                    filter === f
+                      ? "border-primary/50 bg-primary/15 text-primary"
+                      : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                  }`}
+                >
+                  {f}
+                </button>
               ))}
+            </div>
+
+            {/* Roles grouped by category */}
+            <div className="space-y-6">
+              {filter === "All" ? (
+                // Show all categories when "All" is selected
+                ROLE_CATEGORIES.map((category) => {
+                  const categoryRoles = visibleRoles.filter(r => r.category === category);
+                  if (categoryRoles.length === 0) return null;
+                  return (
+                    <div key={category}>
+                      <h3 className="mb-3 flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-primary">
+                        {category}
+                        <span className="text-muted-foreground">({categoryRoles.length})</span>
+                      </h3>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {categoryRoles.map((role) => {
+                          const completedSession = sessions?.find(s => 
+                            s.roleTitle.trim().toLowerCase() === role.title.trim().toLowerCase() && 
+                            s.status === "evaluated"
+                          );
+                          return (
+                            <RoleCard
+                              key={role.title}
+                              role={role}
+                              onSelect={handleRoleClick}
+                              disabled={createSession.isPending}
+                              completed={hasCompleted(role.title)}
+                              onViewResults={completedSession ? () => setLocation(`/results/${completedSession.id}`) : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                // Show single category when specific filter is selected
+                <>
+                  <h3 className="mb-3 flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-primary">
+                    {filter}
+                    <span className="text-muted-foreground">({visibleRoles.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {visibleRoles.map((role) => {
+                      const completedSession = sessions?.find(s => 
+                        s.roleTitle.trim().toLowerCase() === role.title.trim().toLowerCase() && 
+                        s.status === "evaluated"
+                      );
+                      return (
+                        <RoleCard
+                          key={role.title}
+                          role={role}
+                          onSelect={handleRoleClick}
+                          disabled={createSession.isPending}
+                          completed={hasCompleted(role.title)}
+                          onViewResults={completedSession ? () => setLocation(`/results/${completedSession.id}`) : undefined}
+                        />
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

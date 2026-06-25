@@ -31,6 +31,7 @@ import type {
   CandidateUpdate,
   CreateSession409,
   DashboardStats,
+  EvaluateSessionBody,
   Evaluation,
   HealthStatus,
   Question,
@@ -1031,14 +1032,16 @@ export const getEvaluateSessionUrl = (id: number,) => {
 /**
  * @summary Trigger final AI evaluation for a session
  */
-export const evaluateSession = async (id: number, options?: RequestInit): Promise<Evaluation> => {
+export const evaluateSession = async (id: number,
+    evaluateSessionBody?: EvaluateSessionBody, options?: RequestInit): Promise<Evaluation> => {
 
   return customFetch<Evaluation>(getEvaluateSessionUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      evaluateSessionBody,)
   }
 );}
 
@@ -1046,8 +1049,8 @@ export const evaluateSession = async (id: number, options?: RequestInit): Promis
 
 
 export const getEvaluateSessionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof evaluateSession>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof evaluateSession>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof evaluateSession>>, TError,{id: number;data?: BodyType<EvaluateSessionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof evaluateSession>>, TError,{id: number;data?: BodyType<EvaluateSessionBody>}, TContext> => {
 
 const mutationKey = ['evaluateSession'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1059,10 +1062,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof evaluateSession>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof evaluateSession>>, {id: number;data?: BodyType<EvaluateSessionBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  evaluateSession(id,requestOptions)
+          return  evaluateSession(id,data,requestOptions)
         }
 
 
@@ -1073,18 +1076,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type EvaluateSessionMutationResult = NonNullable<Awaited<ReturnType<typeof evaluateSession>>>
-
+    export type EvaluateSessionMutationBody = BodyType<EvaluateSessionBody> | undefined
     export type EvaluateSessionMutationError = ErrorType<unknown>
 
     /**
  * @summary Trigger final AI evaluation for a session
  */
 export const useEvaluateSession = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof evaluateSession>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof evaluateSession>>, TError,{id: number;data?: BodyType<EvaluateSessionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof evaluateSession>>,
         TError,
-        {id: number},
+        {id: number;data?: BodyType<EvaluateSessionBody>},
         TContext
       > => {
       return useMutation(getEvaluateSessionMutationOptions(options));

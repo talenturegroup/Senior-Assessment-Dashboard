@@ -146,7 +146,7 @@ export const ListSessionsResponseItem = zod.object({
   "candidateId": zod.number(),
   "roleTitle": zod.string(),
   "jobDescription": zod.string().nullish(),
-  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated']),
+  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated', 'disqualified']),
   "questionsGenerated": zod.boolean().optional(),
   "startedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -176,7 +176,7 @@ export const GetSessionResponse = zod.object({
   "candidateId": zod.number(),
   "roleTitle": zod.string(),
   "jobDescription": zod.string().nullish(),
-  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated']),
+  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated', 'disqualified']),
   "questionsGenerated": zod.boolean().optional(),
   "startedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -192,7 +192,7 @@ export const UpdateSessionParams = zod.object({
 })
 
 export const UpdateSessionBody = zod.object({
-  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated']).optional(),
+  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated', 'disqualified']).optional(),
   "startedAt": zod.string().optional(),
   "completedAt": zod.string().optional()
 })
@@ -202,7 +202,7 @@ export const UpdateSessionResponse = zod.object({
   "candidateId": zod.number(),
   "roleTitle": zod.string(),
   "jobDescription": zod.string().nullish(),
-  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated']),
+  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated', 'disqualified']),
   "questionsGenerated": zod.boolean().optional(),
   "startedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -274,6 +274,12 @@ export const SubmitAnswerBody = zod.object({
  */
 export const EvaluateSessionParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const evaluateSessionBodyDisqualifiedDefault = false;
+
+export const EvaluateSessionBody = zod.object({
+  "disqualified": zod.boolean().default(evaluateSessionBodyDisqualifiedDefault)
 })
 
 export const EvaluateSessionResponse = zod.object({
@@ -391,7 +397,7 @@ export const GetAdminSessionDetailResponse = zod.object({
   "candidateId": zod.number(),
   "roleTitle": zod.string(),
   "jobDescription": zod.string().nullish(),
-  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated']),
+  "status": zod.enum(['pending', 'in_progress', 'completed', 'evaluated', 'disqualified']),
   "questionsGenerated": zod.boolean().optional(),
   "startedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),

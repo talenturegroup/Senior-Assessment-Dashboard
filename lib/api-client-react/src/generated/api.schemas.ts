@@ -80,6 +80,7 @@ export const SessionStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   evaluated: 'evaluated',
+  disqualified: 'disqualified',
 } as const;
 
 export interface Session {
@@ -110,6 +111,7 @@ export const SessionUpdateStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   evaluated: 'evaluated',
+  disqualified: 'disqualified',
 } as const;
 
 export interface SessionUpdate {
@@ -266,5 +268,9 @@ export interface AdminDeleteResult {
 export type CreateSession409 = {
   error: string;
   message: string;
+};
+
+export type EvaluateSessionBody = {
+  disqualified?: boolean;
 };
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,9 +12,18 @@ import {
 import type { AdminSessionDetail } from "@workspace/api-client-react";
 import { Navbar } from "../components/navbar";
 import { useIsAdmin } from "../lib/use-admin";
+import { ALL_ROLES, type RoleCategory } from "../lib/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -48,6 +57,8 @@ import {
   FileText,
   Download,
   Trash2,
+  Ban,
+  Search,
 } from "lucide-react";
 
 const QUESTION_TYPE_LABEL: Record<string, string> = {
@@ -468,6 +479,31 @@ export default function Admin() {
     query: { enabled: isAdmin, queryKey: getListAdminSessionsQueryKey() },
   });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL_ROLES");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL_STATUSES");
+
+  // Filter sessions - must be before any conditional returns (Rules of Hooks)
+  const filteredList = useMemo(() => {
+    const list = sessions ?? [];
+    return list.filter((s) => {
+      // Search filter (candidate name or email)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = s.candidateName.toLowerCase().includes(query);
+        const matchesEmail = s.candidateEmail.toLowerCase().includes(query);
+        if (!matchesName && !matchesEmail) return false;
+      }
+
+      // Role filter
+      if (roleFilter !== "ALL_ROLES" && s.roleTitle !== roleFilter) return false;
+
+      // Status filter
+      if (statusFilter !== "ALL_STATUSES" && s.status !== statusFilter) return false;
+
+      return true;
+    });
+  }, [sessions, searchQuery, roleFilter, statusFilter]);
 
   if (!authLoaded || accessLoading) {
     return (
@@ -501,6 +537,7 @@ export default function Admin() {
     (s) => s.overallScore !== null && s.humanReviewStatus !== "reviewed",
   ).length;
   const uniqueCandidates = new Set(list.map((s) => s.candidateId)).size;
+  const disqualifiedCount = list.filter((s) => s.status === "disqualified").length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -517,7 +554,7 @@ export default function Admin() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="bg-card/40 border-border">
             <CardContent className="pt-6">
               <p className="font-mono text-xs text-muted-foreground">TOTAL_SESSIONS</p>
@@ -538,6 +575,51 @@ export default function Admin() {
               <p className="text-3xl font-black font-mono text-amber-500">{pendingReview}</p>
             </CardContent>
           </Card>
+          <Card className="bg-destructive/10 border-destructive/30">
+            <CardContent className="pt-6">
+              <p className="font-mono text-xs text-destructive flex items-center gap-1">
+                <Ban className="h-3 w-3" /> DISQUALIFIED
+              </p>
+              <p className="text-3xl font-black font-mono text-destructive">{disqualifiedCount}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search candidate name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 font-mono text-xs"
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-full sm:w-[200px] font-mono text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL_ROLES">ALL_ROLES</SelectItem>
+              {ALL_ROLES.map((role) => (
+                <SelectItem key={role.title} value={role.title}>
+                  {role.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px] font-mono text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL_STATUSES">ALL_STATUSES</SelectItem>
+              <SelectItem value="pending">PENDING</SelectItem>
+              <SelectItem value="in_progress">IN_PROGRESS</SelectItem>
+              <SelectItem value="evaluated">EVALUATED</SelectItem>
+              <SelectItem value="disqualified">DISQUALIFIED</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Card className="bg-card/40 border-border">
@@ -546,9 +628,9 @@ export default function Admin() {
               <div className="py-16 text-center font-mono text-sm text-muted-foreground">
                 LOADING_SESSIONS…
               </div>
-            ) : list.length === 0 ? (
+            ) : filteredList.length === 0 ? (
               <div className="py-16 text-center font-mono text-sm text-muted-foreground">
-                No assessment sessions yet.
+                {list.length === 0 ? "No assessment sessions yet." : "No sessions match your filters."}
               </div>
             ) : (
               <Table>
@@ -564,9 +646,10 @@ export default function Admin() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {list.map((s) => {
+                  {filteredList.map((s) => {
                     const r = ratingDisplay(s.rating);
                     const reviewed = s.humanReviewStatus === "reviewed";
+                    const role = ALL_ROLES.find(r => r.title === s.roleTitle);
                     return (
                       <TableRow
                         key={s.id}
@@ -577,11 +660,24 @@ export default function Admin() {
                           <div className="font-medium text-sm">{s.candidateName}</div>
                           <div className="text-xs text-muted-foreground">{s.candidateEmail}</div>
                         </TableCell>
-                        <TableCell className="text-sm">{s.roleTitle}</TableCell>
                         <TableCell>
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {s.status.toUpperCase()}
-                          </span>
+                          <div className="text-sm">{s.roleTitle}</div>
+                          {role && (
+                            <span className="inline-flex items-center rounded-md border border-transparent bg-secondary px-1.5 py-0 font-mono text-[10px] font-semibold text-secondary-foreground mt-1">
+                              {role.category}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {s.status === "disqualified" ? (
+                            <Badge className="font-mono text-[10px] bg-destructive/20 text-destructive border-destructive/40">
+                              DISQUALIFIED
+                            </Badge>
+                          ) : (
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {s.status.toUpperCase()}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {s.overallScore !== null ? s.overallScore : "—"}

@@ -14,4 +14,5 @@ export const SessionUpdateStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   evaluated: 'evaluated',
+  disqualified: 'disqualified',
 } as const;

@@ -19,6 +19,7 @@ export * from './cvParsed';
 export * from './cvParsedSectionsItem';
 export * from './cVUpload';
 export * from './dashboardStats';
+export * from './evaluateSessionBody';
 export * from './evaluation';
 export * from './evaluationHumanReviewStatus';
 export * from './evaluationRating';
