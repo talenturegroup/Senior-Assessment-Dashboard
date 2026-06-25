@@ -53,8 +53,8 @@ export default function Landing() {
             roles.
           </h1>
           <p className="mx-auto max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-            Pick a role and face a rigorous, adaptive technical interview — calibrated for
-            professionals with 5+ years of experience and scored in minutes.
+            Pick a role and take a short, AI-led interview. We assess your skills and
+            connect you with teams hiring for that role.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button

@@ -151,7 +151,11 @@ export default function Interview() {
   // Speak the welcome message when we land on the intro stage with questions ready.
   useEffect(() => {
     if (stage !== "intro" || !questions?.length || muted) return;
-    speak(introText, { onStart: () => setIsSpeaking(true), onEnd: () => setIsSpeaking(false) });
+    speak(introText, { 
+      onStart: () => setIsSpeaking(true), 
+      onEnd: () => setIsSpeaking(false),
+      onError: (error) => console.error("[Interview] Speech error:", error),
+    });
     return () => cancelSpeech();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, questions?.length]);
@@ -164,6 +168,7 @@ export default function Interview() {
     speak(currentQuestion.questionText, {
       onStart: () => setIsSpeaking(true),
       onEnd: () => setIsSpeaking(false),
+      onError: (error) => console.error("[Interview] Speech error:", error),
     });
     return () => cancelSpeech();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,9 +183,17 @@ export default function Interview() {
         cancelSpeech();
         setIsSpeaking(false);
       } else if (stage === "interview" && currentQuestion) {
-        speak(currentQuestion.questionText, { onStart: () => setIsSpeaking(true), onEnd: () => setIsSpeaking(false) });
+        speak(currentQuestion.questionText, { 
+          onStart: () => setIsSpeaking(true), 
+          onEnd: () => setIsSpeaking(false),
+          onError: (error) => console.error("[Interview] Speech error:", error),
+        });
       } else if (stage === "intro") {
-        speak(introText, { onStart: () => setIsSpeaking(true), onEnd: () => setIsSpeaking(false) });
+        speak(introText, { 
+          onStart: () => setIsSpeaking(true), 
+          onEnd: () => setIsSpeaking(false),
+          onError: (error) => console.error("[Interview] Speech error:", error),
+        });
       }
       return next;
     });
@@ -189,7 +202,11 @@ export default function Interview() {
   const replay = () => {
     if (muted) return;
     const text = stage === "intro" ? introText : currentQuestion?.questionText ?? "";
-    speak(text, { onStart: () => setIsSpeaking(true), onEnd: () => setIsSpeaking(false) });
+    speak(text, { 
+      onStart: () => setIsSpeaking(true), 
+      onEnd: () => setIsSpeaking(false),
+      onError: (error) => console.error("[Interview] Speech error:", error),
+    });
   };
 
   const beginInterview = () => {
