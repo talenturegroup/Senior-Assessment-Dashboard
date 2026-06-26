@@ -18,26 +18,6 @@ import Interview from "./pages/interview";
 import Results from "./pages/results";
 import Admin from "./pages/admin";
 
-// Clerk SSO callback component
-function SsoCallback() {
-  const { handleRedirectCallback } = useClerk();
-
-  useEffect(() => {
-    handleRedirectCallback().catch((err) => {
-      console.error("SSO callback error:", err);
-    });
-  }, [handleRedirectCallback]);
-
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <div className="text-center">
-        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <p className="font-mono text-sm text-muted-foreground">COMPLETING_AUTHENTICATION...</p>
-      </div>
-    </div>
-  );
-}
-
 const queryClient = new QueryClient();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -297,7 +277,6 @@ function ClerkProviderWithRoutes() {
           <TooltipProvider>
           <Switch>
             <Route path="/" component={HomeRedirect} />
-            <Route path="/sign-in/sso-callback" component={SsoCallback} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/verify-email" component={EmailVerificationPage} />
