@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: assessment-dashboard
+    runtime: static
+    buildCommand: pnpm install && pnpm run build
+    publishPath: artifacts/assessment-dashboard/dist
+    rootDirectory: artifacts/assessment-dashboard
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

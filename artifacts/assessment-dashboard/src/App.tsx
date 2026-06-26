@@ -297,10 +297,10 @@ function ClerkProviderWithRoutes() {
           <TooltipProvider>
           <Switch>
             <Route path="/" component={HomeRedirect} />
+            <Route path="/sign-in/sso-callback" component={SsoCallback} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/verify-email" component={EmailVerificationPage} />
-            <Route path="/sso-callback" component={SsoCallback} />
             <Route path="/profile">
               <AuthedRoute>
                 <Profile />
