@@ -127,3 +127,15 @@
     @apply cursor-pointer;
   }
 }
+
+@layer utilities {
+  .hover-elevate {
+    @apply transition-all duration-200 ease-out;
+  }
+  .hover-elevate:hover {
+    @apply -translate-y-0.5 shadow-lg;
+  }
+  .active-elevate-2:active {
+    @apply -translate-y-1 shadow-xl;
+  }
+}

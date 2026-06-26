@@ -269,10 +269,10 @@ export default function Dashboard() {
                   type="button"
                   aria-pressed={filter === f}
                   onClick={() => setFilter(f)}
-                  className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                  className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition-all duration-200 ease-out ${
                     filter === f
                       ? "border-primary/50 bg-primary/15 text-primary"
-                      : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                      : "border-border/60 text-muted-foreground hover:border-primary/40 hover:bg-secondary/50 hover:text-foreground hover:-translate-y-0.5"
                   }`}
                 >
                   {f}
@@ -376,7 +376,7 @@ export default function Dashboard() {
                               : `/interview/${session.id}`
                           )
                         }
-                        className="group flex w-full items-center justify-between gap-2 p-4 text-left transition-colors hover:bg-secondary/20"
+                        className="group flex w-full items-center justify-between gap-2 p-4 text-left transition-all duration-200 ease-out hover:bg-secondary/20 hover:border-primary/30 border border-transparent"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{session.roleTitle}</p>
@@ -386,7 +386,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground transition-colors group-hover:text-primary">
                           {session.status === "evaluated" ? "RESULTS" : "RESUME"}
-                          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                          <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                         </div>
                       </button>
                     ))}

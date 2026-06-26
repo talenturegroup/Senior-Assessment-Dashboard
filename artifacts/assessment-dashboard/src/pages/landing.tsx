@@ -110,10 +110,10 @@ export default function Landing() {
                   type="button"
                   aria-pressed={filter === f}
                   onClick={() => setFilter(f)}
-                  className={`rounded-full border px-3 py-1 font-mono text-xs transition-colors ${
+                  className={`rounded-full border px-3 py-1 font-mono text-xs transition-all duration-200 ease-out ${
                     filter === f
                       ? "border-primary/50 bg-primary/15 text-primary"
-                      : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                      : "border-border/60 text-muted-foreground hover:border-primary/40 hover:bg-secondary/50 hover:text-foreground hover:-translate-y-0.5"
                   }`}
                 >
                   {f}
