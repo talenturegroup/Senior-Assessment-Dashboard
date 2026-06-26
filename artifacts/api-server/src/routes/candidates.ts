@@ -82,6 +82,7 @@ router.post("/candidates/me/cv", requireAuth, attachCandidate, async (req, res):
       name: cv.name || null,
       phone: cv.phone || null,
       location: cv.location || null,
+      years: cv.years || null,
     },
     profileComplete: true,
   };
@@ -90,6 +91,7 @@ router.post("/candidates/me/cv", requireAuth, attachCandidate, async (req, res):
   if (cv.name && !req.candidate!.name) update.name = cv.name;
   if (cv.phone && !req.candidate!.phone) update.phone = cv.phone;
   if (cv.location && !req.candidate!.location) update.location = cv.location;
+  if (cv.years !== null && !req.candidate!.yearsOfExperience) update.yearsOfExperience = cv.years;
   if (mergedSkills.length > 0) update.skills = mergedSkills;
 
   const [candidate] = await db

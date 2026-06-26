@@ -53,13 +53,13 @@ export async function generateInterviewQuestions(
   cvText: string | null,
   jobDescription: string | null
 ): Promise<GeneratedQuestion[]> {
-  const prompt = `You are a senior technical interviewer at a top-tier company. Generate exactly 8 senior-level interview questions for a ${role} candidate.
+  const prompt = `You are a senior technical interviewer at a top-tier company. Generate exactly 10 senior-level interview questions for a ${role} candidate.
 
 ${cvText ? `Candidate CV:\n${cvText.slice(0, 2000)}\n\n` : ""}${jobDescription ? `Job Description:\n${jobDescription.slice(0, 1000)}\n\n` : ""}
 
 Requirements:
 - All questions must be at senior level (5+ years experience assumed)
-- Mix: 2 soft_skill questions, 3 technical deep-dive questions, 2 coding questions, 1 system_design question
+- Mix: 3 soft_skill questions, 4 technical deep-dive questions, 2 coding questions, 1 system_design question
 - soft_skill questions assess communication, collaboration, leadership, conflict resolution, and judgment
 - coding questions ask the candidate to describe their approach/solution to a concrete programming problem relevant to a ${role}
 - technical and system_design questions test depth of knowledge and architecture skills
@@ -84,7 +84,7 @@ Return ONLY valid JSON array with this format:
     const parsed = JSON.parse(content);
     const questions: Array<{ questionText?: string; question?: string; questionType?: string }> =
       Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
-    return questions.slice(0, 8).map((q, i) => ({
+    return questions.slice(0, 10).map((q, i) => ({
       questionText: q.questionText ?? q.question ?? `Question ${i + 1}`,
       questionType: (QUESTION_TYPES.includes((q.questionType ?? "") as QuestionType)
         ? q.questionType
@@ -285,6 +285,7 @@ export interface ParsedCv {
   email: string | null;
   phone: string | null;
   location: string | null;
+  years: number | null;
   summary: string | null;
   skills: string[];
   sections: Array<{ heading: string; content: string }>;
@@ -324,30 +325,44 @@ export function parseCvDeterministic(cvText: string): ParsedCv {
   const lines = text.split("\n").map((l) => l.trim());
 
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const phoneMatch = text.match(/(\+?\d[\d\s().-]{7,}\d)/);
+  // Improved phone regex to avoid matching dates, IDs, or other number sequences
+  const phoneMatch = text.match(/(\+?\d{1,3}[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?\d{1,4}[\s\-\.]?\d{1,9})/);
 
   // The first non-empty line is usually the candidate's name.
+  // Improved to handle all-caps names and avoid matching addresses.
   let name: string | null = null;
   for (const line of lines) {
     if (!line) continue;
     if (emailMatch && line.includes(emailMatch[0])) continue;
     if (/^\+?\d/.test(line)) continue;
-    if (line.length <= 60 && /^[A-Za-z][A-Za-z.'\- ]+$/.test(line)) {
+    // Skip lines that look like addresses (contain street indicators)
+    if (/street|st\.|road|rd\.|avenue|ave\.|boulevard|blvd\.|lane|ln\.|drive|dr\.|court|ct\.|place|pl\./i.test(line)) continue;
+    // Skip lines that look like URLs
+    if (/^https?:\/\//i.test(line)) continue;
+    // Accept names that are all caps (common in CV headers) or normal case
+    if (line.length <= 60 && (line === line.toUpperCase() || /^[A-Za-z][A-Za-z.'\- ]+$/.test(line))) {
       name = line;
+      break;
     }
-    break;
   }
 
   // Location heuristic: a "City, ST" or "City, Country" style line near the top.
+  // Improved to handle more varied location formats and avoid false positives.
   let location: string | null = null;
-  for (const line of lines.slice(0, 12)) {
+  for (const line of lines.slice(0, 15)) {
     if (location) break;
     if (emailMatch && line.includes(emailMatch[0])) continue;
-    const m = line.match(/^([A-Za-z.\- ]+,\s*[A-Za-z.\- ]{2,})$/);
-    if (m && line.length <= 60) location = m[1].trim();
+    // Skip lines that look like addresses
+    if (/street|st\.|road|rd\.|avenue|ave\.|boulevard|blvd\.|lane|ln\.|drive|dr\.|court|ct\.|place|pl\./i.test(line)) continue;
+    // Match "City, State/Country" patterns with more flexibility
+    const m = line.match(/^([A-Za-z][A-Za-z.\- ]+,\s*[A-Za-z][A-Za-z.\- ]{2,})$/);
+    if (m && line.length <= 80 && line.split(",").length <= 3) {
+      location = m[1].trim();
+    }
   }
 
   // Split into sections by recognised headings.
+  // Improved to handle headings with slight variations and better section boundaries.
   const sections: Array<{ heading: string; content: string }> = [];
   let currentHeading: string | null = null;
   let buffer: string[] = [];
@@ -361,7 +376,7 @@ export function parseCvDeterministic(cvText: string): ParsedCv {
     const normalized = line.toLowerCase().replace(/[:•\-_]+$/g, "").trim();
     const isHeading =
       line.length > 0 &&
-      line.length <= 40 &&
+      line.length <= 50 &&
       CV_SECTION_HEADINGS.includes(normalized);
     if (isHeading) {
       flush();
@@ -373,13 +388,15 @@ export function parseCvDeterministic(cvText: string): ParsedCv {
   flush();
 
   // Skills: pull from a skills section if present.
+  // Improved to handle more varied skill listing formats and clean up the results.
   let skills: string[] = [];
   const skillSection = sections.find((s) => /skill/i.test(s.heading));
   if (skillSection) {
     skills = skillSection.content
-      .split(/[,•\n|]/)
+      .split(/[,•\n|;\/]/)
       .map((s) => s.trim())
-      .filter((s) => s.length > 0 && s.length <= 40)
+      .filter((s) => s.length > 0 && s.length <= 40 && !/^\d+$/.test(s)) // Filter out pure numbers
+      .map((s) => s.replace(/^[•\-\*]\s*/, "")) // Remove bullet points
       .slice(0, 30);
   }
 
@@ -392,6 +409,7 @@ export function parseCvDeterministic(cvText: string): ParsedCv {
     email: emailMatch ? emailMatch[0] : null,
     phone: phoneMatch ? phoneMatch[0].trim() : null,
     location,
+    years: null, // Deterministic parser cannot reliably calculate years from dates
     summary: summarySection ? summarySection.content : null,
     skills,
     sections:
@@ -416,7 +434,8 @@ export async function parseCV(cvText: string): Promise<ParsedCv> {
   "name": <full name or null>,
   "email": <email or null>,
   "phone": <phone number or null>,
-  "location": <city/region or null>,
+  "location": <city, country or null>,
+  "years": <total years of professional experience as a number, or null if not determinable>,
   "summary": <a 1-3 sentence professional summary or null>,
   "skills": [<list of individual skills, max 30>],
   "sections": [{ "heading": <section title>, "content": <the full text of that section> }]
@@ -425,7 +444,10 @@ export async function parseCV(cvText: string): Promise<ParsedCv> {
 Rules:
 - Preserve every meaningful section of the CV (experience, education, projects, certifications, etc.) in "sections", in their original order.
 - Keep section "content" readable but complete — do not omit roles, dates, or bullet points.
-- If a field is missing, use null (or [] for skills).
+- If a field is missing or you cannot confidently extract it, use null (or [] for skills). Do NOT guess or hallucinate values.
+- For "years": calculate total professional experience by examining dates in the experience/work history sections. Use the earliest job start date to present (or to the most recent end date if not currently employed). Return null if no dates are present or parseable.
+- For "phone": extract in any common format (e.g. "+1 555-123-4567", "555.123.4567", "555 123 4567"). Return null if no phone number is clearly present.
+- For "location": prefer "City, Country" format (e.g. "San Francisco, USA", "London, UK"). Return null if no location is clearly present.
 
 CV text:
 ${cvText.slice(0, 8000)}`;
@@ -456,6 +478,7 @@ ${cvText.slice(0, 8000)}`;
       email: parsed.email ? String(parsed.email) : fallback.email,
       phone: parsed.phone ? String(parsed.phone) : fallback.phone,
       location: parsed.location ? String(parsed.location) : fallback.location,
+      years: typeof parsed.years === "number" ? parsed.years : fallback.years,
       summary: parsed.summary ? String(parsed.summary) : fallback.summary,
       skills: skills.length > 0 ? skills : fallback.skills,
       sections: sections.length > 0 ? sections : fallback.sections,
@@ -467,16 +490,16 @@ ${cvText.slice(0, 8000)}`;
 }
 
 interface RoleQuestionSet {
-  technical: [string, string, string];
+  technical: [string, string, string, string];
   coding: [string, string];
   systemDesign: string;
 }
 
-// Two role-agnostic soft-skill prompts asked of every candidate (one to open the
-// interview, one mid-way). Soft skills are not role-specific, so these are shared.
-const SOFT_SKILL_QUESTIONS: [string, string] = [
+// Three role-agnostic soft-skill prompts asked of every candidate. Soft skills are not role-specific, so these are shared.
+const SOFT_SKILL_QUESTIONS: [string, string, string] = [
   "To start, tell me about a time you had a disagreement with a teammate on an important technical decision. How did you work through it and what was the outcome?",
   "How do you communicate complex technical trade-offs to non-technical stakeholders? Walk me through a specific example.",
+  "Describe a situation where you had to mentor or guide a less experienced team member. How did you approach it and what was the result?",
 ];
 
 // Role-specific deterministic question banks. These are used when the AI question
@@ -488,6 +511,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Walk me through how you would investigate and respond to a suspected data exfiltration alert from your SIEM. Which signals do you prioritize and how do you contain it?",
       "How do you run vulnerability management at scale — from discovery and prioritization (CVSS, exploitability, asset criticality) to remediation tracking across hundreds of assets?",
       "Explain the difference between signature-based detection and behavioral/anomaly detection. When do you invest in each, and how do you keep false positives manageable?",
+      "How would you design a zero-trust network architecture for a hybrid cloud environment? What are the key components and how do they work together?",
     ],
     coding: [
       "You need to scan a large volume of authentication logs to flag brute-force attempts. Describe the data structures and approach you'd use to detect more than 10 failed logins per account within a 5-minute window.",
@@ -501,6 +525,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Describe the most complex system you've architected. What were the key design decisions and trade-offs, and what would you change in hindsight?",
       "How do you approach refactoring a large legacy codebase that has little test coverage while continuing to ship features safely?",
       "How do you reason about consistency, availability, and partition tolerance when designing a distributed service? Give a concrete example.",
+      "How do you design for failure in distributed systems? What patterns do you use for retries, circuit breakers, and graceful degradation?",
     ],
     coding: [
       "Given an array of integers, walk me through finding the two numbers that add up to a target value. Compare a brute-force approach with an optimal one and discuss time and space complexity.",
@@ -514,6 +539,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Walk me through how you'd design a CI/CD pipeline for a microservices system. How do you handle testing, progressive delivery, and rollbacks?",
       "How do you approach observability — metrics, logs, and traces — and how do you define meaningful SLOs and error budgets?",
       "A production service is degraded with rising latency. Walk me through your incident response and how you'd isolate the root cause.",
+      "How do you manage secrets and sensitive configuration across environments? What tools and practices do you use?",
     ],
     coding: [
       "Describe how you'd write a tool to safely perform a rolling restart of pods across a Kubernetes cluster while respecting readiness checks and disruption budgets.",
@@ -527,6 +553,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Walk me through how you'd frame, build, and validate a model to predict customer churn. How do you select features and avoid data leakage?",
       "How do you detect and handle data drift and model degradation once a model is serving production traffic?",
       "Explain how you'd design an A/B experiment to measure the real-world impact of a new model, including how you'd handle confounders and statistical significance.",
+      "How do you handle imbalanced datasets in classification problems? What techniques do you use and when?",
     ],
     coding: [
       "Given a dataset too large to fit in memory, how would you compute per-group aggregations efficiently? Describe your approach and the tools you'd reach for.",
@@ -540,6 +567,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "How do you design a secure, well-architected multi-account cloud environment? Cover networking, IAM boundaries, and guardrails.",
       "Explain your approach to infrastructure as code with Terraform at scale — module design, state management, and handling drift.",
       "How do you optimize cloud cost without sacrificing reliability? Give concrete levers you've actually used.",
+      "How do you design for disaster recovery and business continuity in the cloud? What RPO/RTO targets would you set for different tiers of applications?",
     ],
     coding: [
       "Describe how you'd write Terraform (or pseudo-code) to provision an autoscaling, load-balanced web tier across multiple availability zones.",
@@ -553,6 +581,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "How do you translate an ambiguous business goal into a technical roadmap? Walk me through how you scope an MVP and sequence delivery.",
       "Describe how you work with engineering on technical trade-offs — for example build vs. buy, or taking on tech debt to hit a deadline.",
       "How do you define and instrument success metrics for a feature, and how do you decide whether to iterate on it or kill it?",
+      "How do you prioritize technical debt vs. new features? How do you communicate this trade-off to stakeholders?",
     ],
     coding: [
       "You're given raw funnel event data (view → signup → purchase). Describe how you'd structure an analysis to find the biggest drop-off and quantify the opportunity.",
@@ -566,6 +595,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Walk me through how you'd build a feature end-to-end — from database schema to API to UI. Where do you put business logic and why?",
       "How do you handle authentication and authorization across the stack securely — sessions vs. tokens, protecting APIs, and the frontend?",
       "How do you approach performance across the whole stack — database queries, API latency, and frontend rendering?",
+      "How do you design APIs that are easy to consume and evolve over time? What principles do you follow?",
     ],
     coding: [
       "Describe how you'd implement optimistic UI updates with proper rollback when the server mutation fails.",
@@ -579,6 +609,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "How do you design clean, versioned REST or RPC APIs? Cover error handling, pagination, and backward compatibility.",
       "Explain how you'd handle a high-throughput write workload — connection pooling, batching, queues, and back-pressure.",
       "How do you ensure data consistency across services — transactions, idempotency, and handling partial failures?",
+      "How do you design database schemas that perform well at scale? What indexing strategies do you use?",
     ],
     coding: [
       "Describe how you'd implement a rate limiter for an API. Which algorithm and data structures would you use, and what edge cases matter?",
@@ -592,6 +623,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "How do you diagnose and fix performance problems in a large React app — unnecessary re-renders, bundle size, and slow interactions?",
       "Explain your approach to component architecture and state management as an app grows. When do you reach for context, a store, or server-state caching?",
       "How do you build accessible and responsive components, and how do you actually verify accessibility?",
+      "How do you handle complex form validation and user input in React? What patterns do you use?",
     ],
     coding: [
       "Describe how you'd implement a debounced, cancelable search-as-you-type input that avoids race conditions between responses.",
@@ -605,6 +637,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Walk me through how you'd design a RAG pipeline: chunking, embeddings, retrieval, and how you'd evaluate and improve answer quality.",
       "How do you reduce hallucinations and measure the quality of an LLM feature in production? What evals and guardrails do you put in place?",
       "Explain the trade-offs between prompt engineering, fine-tuning, and retrieval when adapting a model to a specific domain.",
+      "How do you optimize LLM inference costs while maintaining quality? What techniques do you use?",
     ],
     coding: [
       "Describe how you'd implement chunking and retrieval over a large document corpus efficiently, including overlap handling and metadata filtering.",
@@ -618,6 +651,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "How do you architect a mobile app for testability and maintainability (e.g. MVVM or clean architecture)? Walk me through your layering.",
       "How do you handle offline-first behavior and data sync between the device and the backend, including conflict resolution?",
       "How do you diagnose and improve mobile performance — startup time, UI jank, memory, and battery?",
+      "How do you handle state management in a mobile app? What patterns do you use?",
     ],
     coding: [
       "Describe how you'd implement smooth infinite scrolling with image loading and caching in a list, while avoiding memory spikes.",
@@ -631,6 +665,7 @@ const ROLE_QUESTION_BANK: Record<string, RoleQuestionSet> = {
       "Walk me through how you diagnose and optimize a slow query — reading the execution plan, indexing strategy, and the trade-offs involved.",
       "How do you design a schema for both integrity and performance? When do you denormalize, and how do you manage the consequences?",
       "Explain your approach to high availability and disaster recovery — replication, backups, RPO/RTO targets, and failover testing.",
+      "How do you handle database security at scale — authentication, authorization, encryption, and auditing?",
     ],
     coding: [
       "Given a reporting query that joins several large tables and runs slowly, describe how you'd rewrite or index it and how you'd verify the improvement.",
@@ -647,6 +682,7 @@ function getDefaultQuestionSet(role: string): RoleQuestionSet {
       `Describe the most complex system you've designed as a ${role}. What were the key technical decisions and trade-offs?`,
       `How do you approach performance optimization in your ${role} work? Give a concrete example with measurable impact.`,
       `What strategies do you use to ensure code quality and reliability in production systems as a ${role}?`,
+      `How do you handle failure and error recovery in your ${role} work? Give a specific example.`,
     ],
     coding: [
       `Given an array of integers, walk me through how you would find the two numbers that add up to a target value. Discuss time and space complexity.`,
@@ -658,7 +694,7 @@ function getDefaultQuestionSet(role: string): RoleQuestionSet {
 
 function getFallbackQuestions(role: string): GeneratedQuestion[] {
   const set = ROLE_QUESTION_BANK[role] ?? getDefaultQuestionSet(role);
-  // Same 2 soft / 3 technical / 2 coding / 1 system_design mix the AI prompt asks
+  // Same 3 soft / 4 technical / 2 coding / 1 system_design mix the AI prompt asks
   // for, ordered to open with a soft-skill question to ease the candidate in.
   const ordered: Array<{ questionText: string; questionType: QuestionType }> = [
     { questionText: SOFT_SKILL_QUESTIONS[0], questionType: "soft_skill" },
@@ -669,6 +705,8 @@ function getFallbackQuestions(role: string): GeneratedQuestion[] {
     { questionText: set.coding[1], questionType: "coding" },
     { questionText: SOFT_SKILL_QUESTIONS[1], questionType: "soft_skill" },
     { questionText: set.technical[2], questionType: "technical" },
+    { questionText: SOFT_SKILL_QUESTIONS[2], questionType: "soft_skill" },
+    { questionText: set.technical[3], questionType: "technical" },
   ];
   return ordered.map((q, i) => ({ ...q, orderIndex: i }));
 }
